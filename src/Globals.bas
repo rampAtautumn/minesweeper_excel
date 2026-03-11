@@ -1,6 +1,7 @@
 'Variables del estado del juego'
 Public GameRunning as Boolean 
 Public GamePaused as Boolean  
+Public GameEnded as Boolean
 Public CurrentRound as Integer 
 Public const MaxRound as integer = 20
 

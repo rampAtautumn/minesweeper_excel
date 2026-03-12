@@ -3,6 +3,7 @@ Option Explicit
 Private Sub StartGame()
     SetupEnviroment
     GameInit
+    Gameloop
 End Sub
 
 Private Sub SetupEnviroment() 'Función para crear/verificar el entorno'
@@ -91,4 +92,52 @@ Private Sub ResetVars() 'Sub para resetear variables del jugador'
     
     GameSpeed = 1
 
+End Sub
+
+Private Sub Gameloop()
+    do while GameRunning = true
+        call frame
+        Wait FrameDelay
+    Loop
+End Sub
+
+Private Sub Frame() 'Sub para ejecutar cada frame del juego'
+    call InputProcess
+    call ObjectUpdater
+    call Collisioncheck
+    call StateUpdate
+    GameRunning = False
+End Sub
+
+private Sub InputProcess()
+    'TODO: crear sistema de input'
+    MsgBox("Hola Mundo")
+End Sub
+
+private Sub ObjectUpdater()
+    'TODO: crear sistema de Actualización de objetos'
+    MsgBox("Objetos actualizados")
+End Sub
+
+private Sub Collisioncheck()
+    'TODO: Crear check de colisiones'
+    MsgBox("Colisiones revisadas")
+End Sub
+
+private Sub StateUpdate()
+    'TODO: Crear actualizador de estado'
+    MsgBox("Estado actualizado")
+End Sub
+
+private Sub EventProcesser()
+    'TODO: Crear procesador de eventos'
+    MsgBox("Eventos procesados")
+End Sub
+
+Private Sub Wait(Seconds As Double) ' función para evitar sobrecarga
+    Dim EndTime As Double
+    EndTime = Timer + Seconds
+    Do While Timer < EndTime
+        DoEvents  
+    Loop
 End Sub

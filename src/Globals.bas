@@ -23,7 +23,7 @@ Public Ducks as Collection
 
 'Variables de velocidad'
 Public GameSpeed as Double
-Public const FrameDelay as Double = 0.25
+Public const FrameDelay as Double = 0.0333
 
 'Referencias a las hojas del juego'
 Public Menusheet as Worksheet

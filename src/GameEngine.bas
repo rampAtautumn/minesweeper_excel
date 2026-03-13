@@ -97,7 +97,6 @@ End Sub
 Private Sub Gameloop()
     do while GameRunning = true
         call frame
-        Wait FrameDelay
     Loop
 End Sub
 
@@ -106,32 +105,49 @@ Private Sub Frame() 'Sub para ejecutar cada frame del juego'
     call ObjectUpdater
     call Collisioncheck
     call StateUpdate
+    call EventProcesser
+    call Wait FrameDelay
     GameRunning = False
 End Sub
 
 private Sub InputProcess()
-    'TODO: crear sistema de input'
-    MsgBox("Hola Mundo")
+    MouseX = Application.CursorLeft
+    MouseY = Application.CursorTop
 End Sub
 
 private Sub ObjectUpdater()
-    'TODO: crear sistema de Actualización de objetos'
-    MsgBox("Objetos actualizados")
+    Dim duck As Variant
+
+    For Each duck In Ducks
+        
+        'Aquí se moverán los patos
+        
+    Next duck
+
 End Sub
 
 private Sub Collisioncheck()
-    'TODO: Crear check de colisiones'
-    MsgBox("Colisiones revisadas")
+
+    Dim duck As Variant
+
+    For Each duck In Ducks
+        
+        'Aquí se verificará si el cursor golpea al pato
+        
+    Next duck
+
 End Sub
 
 private Sub StateUpdate()
-    'TODO: Crear actualizador de estado'
-    MsgBox("Estado actualizado")
+
+ If DucksShot >= 10 Then
+        CurrentRound = CurrentRound + 1
+    End If
+
 End Sub
 
 private Sub EventProcesser()
-    'TODO: Crear procesador de eventos'
-    MsgBox("Eventos procesados")
+    DoEvents  
 End Sub
 
 Private Sub Wait(Seconds As Double) ' función para evitar sobrecarga

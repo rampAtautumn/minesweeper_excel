@@ -105,6 +105,7 @@ Private Sub Frame() 'Sub para ejecutar cada frame del juego'
     call ObjectUpdater
     call Collisioncheck
     call StateUpdate
+    call RoundManager
     call EventProcesser
     call Wait FrameDelay
     GameRunning = False
@@ -156,4 +157,42 @@ Private Sub Wait(Seconds As Double) ' función para evitar sobrecarga
     Do While Timer < EndTime
         DoEvents  
     Loop
+End Sub
+
+Private Sub InitRound()
+
+    DucksPerRound = 3 + CurrentRound
+    DucksSpawned = 0
+    
+    SpawnDelay = 1.5
+    
+    LastSpawnTime = Timer
+
+End Sub
+Private Sub SpawnSystem()
+
+    If DucksSpawned >= DucksPerRound Then Exit Sub
+    
+    If Timer - LastSpawnTime >= SpawnDelay Then
+    
+        SpawnDuck
+        
+        DucksSpawned = DucksSpawned + 1
+        
+        LastSpawnTime = Timer
+        
+    End If
+
+End Sub
+
+Sub RoundManager()
+
+    If DucksShot + DucksMissed >= DucksPerRound Then
+        
+        CurrentRound = CurrentRound + 1
+        
+        InitRound
+        
+    End If
+
 End Sub

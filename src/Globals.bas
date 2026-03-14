@@ -20,6 +20,10 @@ Public MouseY as Double
 
 'Clase patos'
 Public Ducks as Collection
+Public DucksPerRound As Integer
+Public DucksSpawned As Integer
+Public SpawnDelay As Double
+Public LastSpawnTime As Double
 
 'Variables de velocidad'
 Public GameSpeed as Double

@@ -95,36 +95,27 @@ Private Sub ResetVars() 'Sub para resetear variables del jugador'
 End Sub
 
 Private Sub Gameloop()
-    do while GameRunning = true
-        call frame
+    Do While GameRunning
+        Frame
     Loop
 End Sub
 
-Private Sub Frame() 'Sub para ejecutar cada frame del juego'
-    call InputProcess
-    call ObjectUpdater
-    call Collisioncheck
-    call StateUpdate
-    call RoundManager
-    call EventProcesser
-    call Wait FrameDelay
-    GameRunning = False
+Private Sub Frame()
+
+    Call InputProcess
+    Call SpawnSystem
+    Call UpdateEntities
+    Call Collisioncheck
+    Call StateUpdate
+    Call RoundManager
+    Call EventProcesser
+    Call Wait(FrameDelay)
+
 End Sub
 
 private Sub InputProcess()
     MouseX = Application.CursorLeft
     MouseY = Application.CursorTop
-End Sub
-
-private Sub ObjectUpdater()
-    Dim duck As Variant
-
-    For Each duck In Ducks
-        
-        'Aquí se moverán los patos
-        
-    Next duck
-
 End Sub
 
 private Sub Collisioncheck()
@@ -159,16 +150,21 @@ Private Sub Wait(Seconds As Double) ' función para evitar sobrecarga
     Loop
 End Sub
 
-Private Sub InitRound()
+Private Sub GameInit()
 
-    DucksPerRound = 3 + CurrentRound
-    DucksSpawned = 0
-    
-    SpawnDelay = 1.5
-    
-    LastSpawnTime = Timer
+    GameRunning = True
+    GamePaused = False
+    GameEnded = False
+    CurrentRound = 1
+
+    ResetVars
+
+    Set Ducks = New Collection
+
+    InitRound
 
 End Sub
+
 Private Sub SpawnSystem()
 
     If DucksSpawned >= DucksPerRound Then Exit Sub
@@ -185,7 +181,7 @@ Private Sub SpawnSystem()
 
 End Sub
 
-Sub RoundManager()
+Private Sub RoundManager()
 
     If DucksShot + DucksMissed >= DucksPerRound Then
         
@@ -194,5 +190,49 @@ Sub RoundManager()
         InitRound
         
     End If
+
+End Sub
+
+private Function CreateDuck() As Object
+
+    Dim duck As Object
+    Set duck = CreateObject("Scripting.Dictionary")
+    
+    duck("x") = Rnd * 800
+    duck("y") = Rnd * 400
+    
+    duck("vx") = 3
+    duck("vy") = 0
+    
+    duck("alive") = True
+    
+    Set CreateDuck = duck
+
+End Function
+
+Sub SpawnDuck()
+
+    Dim duck As Object
+    
+    Set duck = CreateDuck()
+    
+    Ducks.Add duck
+    
+End Sub
+
+Sub UpdateEntities()
+
+    Dim duck As Variant
+    
+    For Each duck In Ducks
+    
+        If duck("alive") Then
+        
+            duck("x") = duck("x") + duck("vx")
+            duck("y") = duck("y") + duck("vy")
+        
+        End If
+    
+    Next duck
 
 End Sub

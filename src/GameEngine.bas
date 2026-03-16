@@ -116,15 +116,35 @@ End Sub
 private Sub InputProcess()
     MouseX = Application.CursorLeft
     MouseY = Application.CursorTop
+
+    If GetAsyncKeyState(vbKeyLButton) <> 0 Then
+        PlayerShot = True
+    Else
+        PlayerShot = False
+    End If
 End Sub
 
-private Sub Collisioncheck()
+Private Sub Collisioncheck()
 
     Dim duck As Variant
+    
+    If PlayerShot = False Then Exit Sub
 
     For Each duck In Ducks
+    
+        If duck("alive") Then
         
-        'Aquí se verificará si el cursor golpea al pato
+            If Abs(MouseX - duck("x")) < 30 And Abs(MouseY - duck("y")) < 30 Then
+            
+                duck("alive") = False
+                
+                DucksShot = DucksShot + 1
+                
+                Score = Score + 10
+                
+            End If
+        
+        End If
         
     Next duck
 
@@ -220,7 +240,7 @@ Sub SpawnDuck()
     
 End Sub
 
-Sub UpdateEntities()
+Private Sub UpdateEntities()
 
     Dim duck As Variant
     
@@ -230,9 +250,14 @@ Sub UpdateEntities()
         
             duck("x") = duck("x") + duck("vx")
             duck("y") = duck("y") + duck("vy")
+            
+            If duck("x") > 1000 Then
+                duck("alive") = False
+                DucksMissed = DucksMissed + 1
+            End If
         
         End If
-    
+        
     Next duck
 
 End Sub

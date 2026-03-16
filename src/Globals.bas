@@ -13,6 +13,7 @@ Public DucksMissed as Integer
 'Variables del jugador/arma'
 Public Bullets as Integer 
 Public const MaxBullets as Integer = 3
+Public PlayerShot As Boolean
 
 'Posición del Mouse'
 Public MouseX as Double

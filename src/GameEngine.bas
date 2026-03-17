@@ -102,17 +102,25 @@ End Sub
 
 Private Sub Frame()
 
-    Call InputProcess
-    Call SpawnSystem
-    Call UpdateEntities
-    Call Collisioncheck
-    Call StateUpdate
-    Call RoundManager
-    Call EventProcesser
-    Call Wait(FrameDelay)
+    InputProcess
+    
+    SpawnSystem
+    
+    UpdateEntities
+    
+    CleanupDucks
+    
+    Collisioncheck
+    
+    StateUpdate
+    
+    RoundManager
+    
+    EventProcesser
+    
+    Wait FrameDelay
 
 End Sub
-
 private Sub InputProcess()
     MouseX = Application.CursorLeft
     MouseY = Application.CursorTop
@@ -252,8 +260,10 @@ Private Sub UpdateEntities()
             duck("y") = duck("y") + duck("vy")
             
             If duck("x") > 1000 Then
+            
                 duck("alive") = False
                 DucksMissed = DucksMissed + 1
+                
             End If
         
         End If
@@ -261,3 +271,21 @@ Private Sub UpdateEntities()
     Next duck
 
 End Sub
+
+Private Sub CleanupDucks()
+
+    Dim i As Long
+    Dim duck As Object
+
+    For i = Ducks.Count To 1 Step -1
+        
+        Set duck = Ducks(i)
+        
+        If duck("alive") = False Then
+            Ducks.Remove i
+        End If
+        
+    Next i
+
+End Sub
+

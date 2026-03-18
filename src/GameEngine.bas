@@ -112,24 +112,45 @@ Private Sub Frame()
     
     Collisioncheck
     
+    ReloadSystem
+    
     StateUpdate
     
     RoundManager
+    
+    CheckGameOver
+    
+    UpdateUI
     
     EventProcesser
     
     Wait FrameDelay
 
 End Sub
-private Sub InputProcess()
+
+Private Sub InputProcess()
+
     MouseX = Application.CursorLeft
     MouseY = Application.CursorTop
 
     If GetAsyncKeyState(vbKeyLButton) <> 0 Then
-        PlayerShot = True
+    
+        If Bullets > 0 Then
+        
+            PlayerShot = True
+            Bullets = Bullets - 1
+            LastShotTime = Timer
+            
+        Else
+        
+            PlayerShot = False
+            
+        End If
+        
     Else
         PlayerShot = False
     End If
+
 End Sub
 
 Private Sub Collisioncheck()
@@ -184,6 +205,13 @@ Private Sub GameInit()
     GamePaused = False
     GameEnded = False
     CurrentRound = 1
+    MaxBullets = 3
+    Bullets = MaxBullets
+
+    ReloadTime = 1.5
+    LastShotTime = Timer
+
+    GameEnded = False
 
     ResetVars
 
@@ -289,3 +317,11 @@ Private Sub CleanupDucks()
 
 End Sub
 
+Private Sub UpdateUI()
+
+    GameSheet.Range("A1").Value = "Score: " & Score
+    GameSheet.Range("A2").Value = "Balas: " & Bullets
+    GameSheet.Range("A3").Value = "Ronda: " & CurrentRound
+    GameSheet.Range("A4").Value = "Fallados: " & DucksMissed
+
+End Sub

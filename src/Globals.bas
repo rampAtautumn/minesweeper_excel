@@ -4,6 +4,8 @@ Public GamePaused as Boolean
 Public GameEnded as Boolean
 Public CurrentRound as Integer 
 Public const MaxRound as integer = 20
+Public ReloadTime As Double
+Public LastShotTime As Double
 
 'Variables de puntuación y progreso'
 Public Score as Long 

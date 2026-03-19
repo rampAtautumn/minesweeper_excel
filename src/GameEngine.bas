@@ -102,6 +102,8 @@ End Sub
 
 Private Sub Frame()
 
+    UpdateDeltaTime
+    
     InputProcess
     
     SpawnSystem
@@ -207,9 +209,9 @@ Private Sub GameInit()
     CurrentRound = 1
     MaxBullets = 3
     Bullets = MaxBullets
-
     ReloadTime = 1.5
     LastShotTime = Timer
+    LastFrameTime = Timer
 
     GameEnded = False
 
@@ -257,7 +259,7 @@ private Function CreateDuck() As Object
     duck("x") = Rnd * 800
     duck("y") = Rnd * 400
     
-    duck("vx") = 3
+    duck("vx") = 100
     duck("vy") = 0
     
     duck("alive") = True
@@ -323,5 +325,29 @@ Private Sub UpdateUI()
     GameSheet.Range("A2").Value = "Balas: " & Bullets
     GameSheet.Range("A3").Value = "Ronda: " & CurrentRound
     GameSheet.Range("A4").Value = "Fallados: " & DucksMissed
+
+End Sub
+
+Private Sub UpdateEntities()
+
+    Dim duck As Variant
+    
+    For Each duck In Ducks
+    
+        If duck("alive") Then
+        
+            duck("x") = duck("x") + duck("vx") * DeltaTime * 60
+            duck("y") = duck("y") + duck("vy") * DeltaTime * 60
+            
+            If duck("x") > 1000 Then
+            
+                duck("alive") = False
+                DucksMissed = DucksMissed + 1
+                
+            End If
+        
+        End If
+        
+    Next duck
 
 End Sub

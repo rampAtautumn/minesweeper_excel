@@ -6,6 +6,8 @@ Public CurrentRound as Integer
 Public const MaxRound as integer = 20
 Public ReloadTime As Double
 Public LastShotTime As Double
+Public DeltaTime As Double
+Public LastFrameTime As Double
 
 'Variables de puntuación y progreso'
 Public Score as Long 

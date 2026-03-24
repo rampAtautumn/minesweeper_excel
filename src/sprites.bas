@@ -2,139 +2,153 @@ Attribute VB_Name = "Sprites"
 Option Explicit
 
 '=======================
-' CONFIG LOCAL
+' CONFIG
 '=======================
 
 Private Const SPRITE_PREFIX As String = "Sprite_Duck_"
-Private Const FRAME_COUNT As Long = 3
 
 '=======================
-' RUTAS (usa globales)
+' PATH SYSTEM (PORTABLE)
 '=======================
 
-Private Function BuildPath(subFolder As String, fileName As String) As String
-    BuildPath = ThisWorkbook.Path & "\" & _
-                ASSETS_ROOT & subFolder & fileName
+Private Function GetAssetsRoot() As String
+    GetAssetsRoot = ThisWorkbook.Path & "\assets\sprites\"
 End Function
 
-Private Function GetDuckFramePath(frameNumber As Long) As String
-    GetDuckFramePath = BuildPath(PATH_DUCKS, "duck_fly_" & frameNumber & ".png")
+Private Function BuildFolderPath(subFolder As String) As String
+    BuildFolderPath = GetAssetsRoot() & subFolder
 End Function
 
 '=======================
-' HELPERS
+' FILE SYSTEM (ROBUSTO)
 '=======================
 
-Private Function GetSheet() As Worksheet
-    On Error Resume Next
-    Set GetSheet = ThisWorkbook.Sheets(SHEET_SPRITES)
-    On Error GoTo 0
+Private Function GetFirstImageFromFolder(subFolder As String) As String
     
-    If GetSheet Is Nothing Then
-        Debug.Print "ERROR: Sheet not found -> " & SHEET_SPRITES
-    End If
-End Function
-
-Private Function GetSpriteName(duckID As String) As String
-    GetSpriteName = SPRITE_PREFIX & duckID
-End Function
-
-Private Function FileExists(filePath As String) As Boolean
-    FileExists = (Dir(filePath) <> "")
-End Function
-
-'=======================
-' CREATE
-'=======================
-
-Public Function CreateDuckSprite(duckID As String, startX As Double, startY As Double) As String
-    Dim ws As Worksheet
-    Dim shp As Shape
-    Dim spriteName As String
-    Dim imagePath As String
+    Dim folderPath As String
+    folderPath = BuildFolderPath(subFolder)
     
-    Set ws = GetSheet()
-    If ws Is Nothing Then Exit Function
-    
-    spriteName = GetSpriteName(duckID)
-    imagePath = GetDuckFramePath(1)
-    
-    If Not FileExists(imagePath) Then
-        Debug.Print "ERROR: Missing sprite -> " & imagePath
+    If Dir(folderPath, vbDirectory) = "" Then
+        Debug.Print "❌ Carpeta no existe:", folderPath
         Exit Function
     End If
     
-    ' Eliminar si ya existe
-    On Error Resume Next
-    ws.Shapes(spriteName).Delete
-    On Error GoTo 0
+    Dim file As String
+    file = Dir(folderPath & "*.png")
     
-    ' Crear imagen
-    Set shp = ws.Shapes.AddPicture( _
-        Filename:=imagePath, _
-        LinkToFile:=msoFalse, _
-        SaveWithDocument:=msoTrue, _
-        Left:=startX, _
-        Top:=startY, _
-        Width:=50, _
-        Height:=50)
-    
-    If shp Is Nothing Then Exit Function
-    
-    shp.Name = spriteName
-    CreateDuckSprite = spriteName
+    If file <> "" Then
+        GetFirstImageFromFolder = folderPath & file
+        Debug.Print "✔ Imagen encontrada:", GetFirstImageFromFolder
+    Else
+        Debug.Print "❌ No hay PNG en:", folderPath
+    End If
+
 End Function
 
 '=======================
-' ANIMATION
+' SHEET (FIX CRÍTICO)
 '=======================
 
-Public Sub SetDuckFrame(duckID As String, frameNumber As Long)
+Private Function GetSheet() As Worksheet
+    Set GetSheet = GameSheet   ' 🔥 MISMA HOJA QUE EL ENGINE
+End Function
+
+'=======================
+' BACKGROUND
+'=======================
+
+Public Sub LoadBackground()
+
     Dim ws As Worksheet
-    Dim shp As Shape
-    Dim spriteName As String
-    Dim imagePath As String
-    
     Set ws = GetSheet()
     If ws Is Nothing Then Exit Sub
+
+    Dim path As String
+    path = GetFirstImageFromFolder(PATH_BACKGROUNDS)
     
-    spriteName = GetSpriteName(duckID)
-    
-    ' Loop de frames
-    frameNumber = ((frameNumber - 1) Mod FRAME_COUNT) + 1
-    
+    If path = "" Then Exit Sub
+
     On Error Resume Next
-    Set shp = ws.Shapes(spriteName)
+    ws.Shapes("Background").Delete
     On Error GoTo 0
+
+    Dim shp As Shape
+    
+    Set shp = ws.Shapes.AddPicture(path, msoFalse, msoTrue, 0, 0, 800, 600)
     
     If shp Is Nothing Then Exit Sub
     
-    imagePath = GetDuckFramePath(frameNumber)
-    
-    If Not FileExists(imagePath) Then Exit Sub
-    
-    shp.Fill.UserPicture imagePath
+    shp.Name = "Background"
+    shp.ZOrder msoSendToBack
+
 End Sub
 
 '=======================
-' MOVEMENT
+' DUCK IMAGE
+'=======================
+
+Private Function GetDuckImage() As String
+    GetDuckImage = GetFirstImageFromFolder(PATH_DUCKS)
+End Function
+
+'=======================
+' CREATE DUCK
+'=======================
+
+Public Function CreateDuckSprite(duckID As String, x As Double, y As Double) As String
+
+    Dim ws As Worksheet
+    Set ws = GetSheet()
+    If ws Is Nothing Then Exit Function
+
+    Dim path As String
+    path = GetDuckImage()
+    
+    If path = "" Then
+        Debug.Print "❌ No hay imágenes de pato"
+        Exit Function
+    End If
+
+    Dim name As String
+    name = SPRITE_PREFIX & duckID
+
+    On Error Resume Next
+    ws.Shapes(name).Delete
+    On Error GoTo 0
+
+    Dim shp As Shape
+    
+    Set shp = ws.Shapes.AddPicture(path, msoFalse, msoTrue, x, y, 60, 60)
+    
+    If shp Is Nothing Then Exit Function
+    
+    shp.Name = name
+
+    CreateDuckSprite = name
+
+End Function
+
+'=======================
+' MOVE
 '=======================
 
 Public Sub MoveDuck(duckID As String, dx As Double, dy As Double)
+
     Dim ws As Worksheet
-    Dim shp As Shape
-    
     Set ws = GetSheet()
     If ws Is Nothing Then Exit Sub
+
+    Dim shp As Shape
     
     On Error Resume Next
-    Set shp = ws.Shapes(GetSpriteName(duckID))
+    Set shp = ws.Shapes(SPRITE_PREFIX & duckID)
     On Error GoTo 0
-    
+
     If shp Is Nothing Then Exit Sub
-    
+
     shp.Left = shp.Left + dx
     shp.Top = shp.Top + dy
+
 End Sub
 
 '=======================
@@ -142,46 +156,53 @@ End Sub
 '=======================
 
 Public Sub RemoveDuck(duckID As String)
+
     Dim ws As Worksheet
-    
     Set ws = GetSheet()
     If ws Is Nothing Then Exit Sub
-    
+
     On Error Resume Next
-    ws.Shapes(GetSpriteName(duckID)).Delete
+    ws.Shapes(SPRITE_PREFIX & duckID).Delete
     On Error GoTo 0
+
 End Sub
 
 '=======================
-' BOUNDS
+' CLEAR
 '=======================
 
-Public Function GetDuckBounds(duckID As String) As Variant
+Public Sub ClearAllSprites()
+
     Dim ws As Worksheet
+    Set ws = GetSheet()
+    If ws Is Nothing Then Exit Sub
+
     Dim shp As Shape
     
-    Set ws = GetSheet()
-    If ws Is Nothing Then Exit Function
-    
-    On Error Resume Next
-    Set shp = ws.Shapes(GetSpriteName(duckID))
-    On Error GoTo 0
-    
-    If shp Is Nothing Then Exit Function
-    
-    GetDuckBounds = Array( _
-        shp.Left, _
-        shp.Top, _
-        shp.Left + shp.Width, _
-        shp.Top + shp.Height _
-    )
-End Function
+    For Each shp In ws.Shapes
+        shp.Delete
+    Next shp
+
+End Sub
 
 '=======================
-' HELPER ANIMATION
+' LOAD ALL
 '=======================
 
-Public Sub AnimateDuck(duckID As String, ByRef frameCounter As Long)
-    frameCounter = frameCounter + 1
-    SetDuckFrame duckID, frameCounter
+Public Sub LoadAllAssets()
+
+    Debug.Print "==== LOAD ASSETS ===="
+    Debug.Print "ROOT:", GetAssetsRoot()
+    
+    LoadBackground
+    
+    Dim result As String
+    result = CreateDuckSprite("test", 200, 200)
+    
+    If result = "" Then
+        Debug.Print "❌ No se pudo crear el pato"
+    Else
+        Debug.Print "✔ Pato creado:", result
+    End If
+
 End Sub

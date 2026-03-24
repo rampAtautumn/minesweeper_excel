@@ -89,47 +89,125 @@ Public Const SHEET_PAUSE As String = "Pause"
 Public Const SHEET_SPRITES As String = "GameScreen"
 
 '=======================
+' SHEET MANAGEMENT
+'=======================
+
+Public Function SheetExists(ByVal sheetName As String) As Boolean
+    On Error Resume Next
+    SheetExists = Not ThisWorkbook.Sheets(sheetName) Is Nothing
+    On Error GoTo 0
+End Function
+
+Public Sub EnsureSheet(ByVal sheetName As String)
+    If Not SheetExists(sheetName) Then
+        Dim ws As Worksheet
+        Set ws = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+        ws.Name = sheetName
+    End If
+End Sub
+
+'=======================
+' CLEAN WORKBOOK
+'=======================
+
+Public Sub CleanWorkbook()
+
+    Dim ws As Worksheet
+    Dim keepNames As Object
+    
+    Set keepNames = CreateObject("Scripting.Dictionary")
+    
+    keepNames.Add SHEET_GAME, True
+    keepNames.Add SHEET_MENU, True
+    keepNames.Add SHEET_PAUSE, True
+    
+    Application.DisplayAlerts = False
+    
+    For Each ws In ThisWorkbook.Worksheets
+        
+        If ThisWorkbook.Worksheets.Count <= 1 Then Exit For
+        
+        If Not keepNames.exists(ws.Name) Then
+            ws.Delete
+        End If
+        
+    Next ws
+    
+    Application.DisplayAlerts = True
+
+End Sub
+
+'=======================
 ' INITIALIZATION
 '=======================
 
 Public Sub InitializeGlobals()
 
-    ' Sheets
+    '-----------------------
+    ' 1. CLEAN ENVIRONMENT
+    '-----------------------
+    CleanWorkbook
+
+    '-----------------------
+    ' 2. ENSURE SHEETS
+    '-----------------------
+    EnsureSheet SHEET_GAME
+    EnsureSheet SHEET_MENU
+    EnsureSheet SHEET_PAUSE
+
+    '-----------------------
+    ' 3. ASSIGN REFERENCES
+    '-----------------------
     Set GameSheet = ThisWorkbook.Sheets(SHEET_GAME)
     Set MenuSheet = ThisWorkbook.Sheets(SHEET_MENU)
     Set PauseSheet = ThisWorkbook.Sheets(SHEET_PAUSE)
 
-    ' Collections
+    '-----------------------
+    ' 4. COLLECTIONS
+    '-----------------------
     Set Ducks = New Collection
 
-    ' Game state
+    '-----------------------
+    ' 5. GAME STATE
+    '-----------------------
     GameRunning = False
     GamePaused = False
     GameEnded = False
     CurrentRound = 1
 
-    ' Score
+    '-----------------------
+    ' 6. SCORE
+    '-----------------------
     Score = 0
     DucksShot = 0
     DucksMissed = 0
 
-    ' Player
+    '-----------------------
+    ' 7. PLAYER
+    '-----------------------
     Bullets = MaxBullets
     PlayerShot = False
     ReloadTime = 1#
     LastShotTime = Timer
 
-    ' Ducks
+    '-----------------------
+    ' 8. DUCKS
+    '-----------------------
     DucksPerRound = 5
     DucksSpawned = 0
     SpawnDelay = 1#
     LastSpawnTime = Timer
 
-    ' Timing
+    '-----------------------
+    ' 9. TIMING
+    '-----------------------
     GameSpeed = 1#
     LastFrameTime = Timer
+    DeltaTime = 0#
 
-    ' Mouse
+    '-----------------------
+    ' 10. MOUSE
+    '-----------------------
     MouseX = 0
     MouseY = 0
 

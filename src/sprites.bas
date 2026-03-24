@@ -50,5 +50,5 @@ Public Sub SetDuckFrame(duckID As String, frameNumber As Integer)
 
     If Not shp Is Nothing Then
         shp.Fill.UserPicture AssetsPath & "duck_fly_" & frameNumber & ".png"
-    End If
+    End If 
 End Sub

@@ -1,77 +1,164 @@
-Sub InitializeGame()
-    ' Initialize game components
-    Set sprites = New Collection
-    Set gameTimer = New Timer
+Option Explicit
+
+'=======================
+' GLOBAL STATE
+'=======================
+
+Public Sprites As Collection
+Public GameRunning As Boolean
+
+Public FrameDelay As Double
+Public LastFrameTime As Double
+
+'=======================
+' INITIALIZATION
+'=======================
+
+Public Sub InitializeGame()
+    Set Sprites = New Collection
+    
+    FrameDelay = 0.0333 ' ~30 FPS
+    LastFrameTime = Timer
+    
     LoadSprites
-    gameTimer.Interval = 1000  ' Set game loop interval
-    gameTimer.Start
+    
+    GameRunning = True
+    
+    ScheduleNextFrame
 End Sub
 
-Sub GameLoop()
-    Do
-        UpdateSprites
-        CheckCollisions
-        RenderSprites
-        DoEvents  ' Allow event handling
-    Loop Until IsGameOver
+'=======================
+' GAME LOOP (NON-BLOCKING)
+'=======================
+
+Public Sub GameLoop()
+    If Not GameRunning Then Exit Sub
+    
+    UpdateDeltaTime
+    UpdateSprites
+    CheckCollisions
+    RenderSprites
+    
+    ScheduleNextFrame
 End Sub
 
-Sub LoadSprites()
-    ' Load sprite assets and initialize sprite objects
+Private Sub ScheduleNextFrame()
+    On Error Resume Next
+    Application.OnTime Now + FrameDelay / 86400#, "GameLoop"
+End Sub
+
+'=======================
+' TIME MANAGEMENT
+'=======================
+
+Private Sub UpdateDeltaTime()
+    Dim currentTime As Double
+    currentTime = Timer
+    
+    ' Manejo de overflow del Timer (medianoche)
+    If currentTime < LastFrameTime Then
+        LastFrameTime = currentTime
+    End If
+    
+    LastFrameTime = currentTime
+End Sub
+
+'=======================
+' SPRITES
+'=======================
+
+Public Sub LoadSprites()
     Dim sprite As Sprite
+    
+    ' Ejemplo: jugador
     Set sprite = New Sprite
     sprite.Load "hunter.png"
-    sprites.Add sprite
+    
+    Sprites.Add sprite
 End Sub
 
-Sub UpdateSprites()
-    ' Update position and state of sprites
+'=======================
+' UPDATE
+'=======================
+
+Public Sub UpdateSprites()
     Dim sprite As Sprite
-    For Each sprite In sprites
+    
+    For Each sprite In Sprites
         sprite.Update
     Next sprite
 End Sub
 
-Sub CheckCollisions()
-    ' Check for collisions between sprites
+'=======================
+' COLLISIONS (OPTIMIZED)
+'=======================
+
+Public Sub CheckCollisions()
+    Dim i As Long, j As Long
     Dim spriteA As Sprite, spriteB As Sprite
-    For Each spriteA In sprites
-        For Each spriteB In sprites
-            If spriteA IsNot spriteB And Collide(spriteA, spriteB) Then
+    
+    For i = 1 To Sprites.Count
+        Set spriteA = Sprites(i)
+        
+        For j = i + 1 To Sprites.Count
+            Set spriteB = Sprites(j)
+            
+            If Collide(spriteA, spriteB) Then
                 HandleCollision spriteA, spriteB
             End If
-        Next spriteB
-    Next spriteA
+        Next j
+    Next i
 End Sub
 
-Sub RenderSprites()
-    ' Render all sprites to the screen
+Public Function Collide(spriteA As Sprite, spriteB As Sprite) As Boolean
+    Collide = Not ( _
+        spriteA.Right < spriteB.Left Or _
+        spriteA.Left > spriteB.Right Or _
+        spriteA.Bottom < spriteB.Top Or _
+        spriteA.Top > spriteB.Bottom _
+    )
+End Function
+
+Public Sub HandleCollision(spriteA As Sprite, spriteB As Sprite)
+    spriteA.HandleCollisionWith spriteB
+    spriteB.HandleCollisionWith spriteA
+End Sub
+
+'=======================
+' RENDER
+'=======================
+
+Public Sub RenderSprites()
     Dim sprite As Sprite
-    For Each sprite In sprites
+    
+    For Each sprite In Sprites
         sprite.Render
     Next sprite
 End Sub
 
-Function Collide(spriteA As Sprite, spriteB As Sprite) As Boolean
-    ' Collision detection logic
-    Return Not (spriteA.Right < spriteB.Left Or spriteA.Left > spriteB.Right Or _
-               spriteA.Bottom < spriteB.Top Or spriteA.Top > spriteB.Bottom)
-End Function
+'=======================
+' GAME CONTROL
+'=======================
 
-Sub HandleCollision(spriteA As Sprite, spriteB As Sprite)
-    ' Handle collision response
-    spriteA.HandleCollisionWith spriteB
+Public Sub StartGame()
+    InitializeGame
 End Sub
 
-Sub OnKeyPress(KeyCode As Integer)
-    ' Event handling for key presses
+Public Sub StopGame()
+    GameRunning = False
+End Sub
+
+Public Sub RestartGame()
+    StopGame
+    InitializeGame
+End Sub
+
+'=======================
+' INPUT (BÁSICO)
+'=======================
+
+Public Sub OnKeyPress(ByVal KeyCode As Integer)
     If KeyCode = vbKeySpace Then
         StartGame
     End If
-End Sub
-
-Sub StartGame()
-    ' Start or restart the game
-    InitializeGame
-    GameLoop
 End Sub

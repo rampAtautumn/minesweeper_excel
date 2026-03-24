@@ -40,8 +40,8 @@ Public Sub Init(ByVal duckID As String, ByVal startX As Double, ByVal startY As 
     m_Frame = 1
     m_Alive = True
     
-    ' Crear sprite visual
-    CreateDuckSprite m_ID, m_X, m_Y
+    ' Crear sprite visual - usar módulo Sprites
+    Sprites.CreateDuckSprite m_ID, m_X, m_Y
 End Sub
 
 Public Sub Update()
@@ -57,7 +57,7 @@ Public Sub Update()
     
     ' Animación
     m_Frame = m_Frame + 1
-    SetDuckFrame m_ID, m_Frame
+    Sprites.SetDuckFrame m_ID, m_Frame
     
     ' Aplicar posición al sprite
     ApplyPosition
@@ -67,7 +67,7 @@ Private Sub ApplyPosition()
     Dim shp As Shape
     
     On Error Resume Next
-    Set shp = ThisWorkbook.Sheets("GameScreen").Shapes("Sprite_Duck_" & m_ID)
+    Set shp = GameSheet.Shapes("Sprite_Duck_" & m_ID)
     On Error GoTo 0
     
     If shp Is Nothing Then Exit Sub
@@ -79,7 +79,7 @@ End Sub
 Public Function IsHit(ByVal mouseX As Double, ByVal mouseY As Double) As Boolean
     Dim bounds As Variant
     
-    bounds = GetDuckBounds(m_ID)
+    bounds = Sprites.GetDuckBounds(m_ID)
     If IsEmpty(bounds) Then Exit Function
     
     IsHit = ( _
@@ -92,7 +92,7 @@ Public Sub Kill()
     If Not m_Alive Then Exit Sub
     
     m_Alive = False
-    RemoveDuck m_ID
+    Sprites.RemoveDuck m_ID
 End Sub
 
 Public Property Get ID() As String
@@ -103,16 +103,14 @@ Public Property Get Alive() As Boolean
     Alive = m_Alive
 End Property
 
-Dim d As Duck
+Public Property Get X() As Double
+    X = m_X
+End Property
 
-Set d = New Duck
-d.Init "1", 100, 200
+Public Property Get Y() As Double
+    Y = m_Y
+End Property
 
-' En tu loop:
-d.Update
-
-' Click:
-If d.IsHit(MouseX, MouseY) Then
-    d.Kill
-End If
-
+Public Property Get Frame() As Integer
+    Frame = m_Frame
+End Property

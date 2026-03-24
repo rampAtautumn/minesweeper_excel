@@ -10,10 +10,16 @@ Public GameEnded As Boolean
 Public CurrentRound As Integer
 Public Const MaxRound As Integer = 20
 
-Public ReloadTime As Double
-Public LastShotTime As Double
+'=======================
+' TIMING
+'=======================
+
 Public DeltaTime As Double
 Public LastFrameTime As Double
+Public Const FrameDelay As Double = 0.0333 ' ~30 FPS
+
+Public ReloadTime As Double
+Public LastShotTime As Double
 
 '=======================
 ' SCORE / PROGRESS
@@ -49,20 +55,18 @@ Public SpawnDelay As Double
 Public LastSpawnTime As Double
 
 '=======================
-' GAME SPEED AND FRAME
+' GAME SPEED
 '=======================
 
 Public GameSpeed As Double
-Public Const FrameDelay As Double = 0.0333
 
 '=======================
 ' SHEET REFERENCES
 '=======================
 
-Public MenuSheet As Worksheet
 Public GameSheet As Worksheet
+Public MenuSheet As Worksheet
 Public PauseSheet As Worksheet
-Public SpriteSheet As Worksheet
 
 '=======================
 ' SHEET NAMES (CONSTANTS)
@@ -70,5 +74,34 @@ Public SpriteSheet As Worksheet
 
 Public Const SHEET_GAME As String = "Game"
 Public Const SHEET_MENU As String = "Menu"
-Public Const SHEET_SPRITES As String = "Sprites"
 Public Const SHEET_PAUSE As String = "Pause"
+Public Const SHEET_SPRITES As String = "GameScreen"
+
+'=======================
+' INITIALIZATION
+'=======================
+
+Public Sub InitializeGlobals()
+    ' Initialize worksheet references
+    On Error Resume Next
+    Set GameSheet = ThisWorkbook.Sheets(SHEET_GAME)
+    Set MenuSheet = ThisWorkbook.Sheets(SHEET_MENU)
+    Set PauseSheet = ThisWorkbook.Sheets(SHEET_PAUSE)
+    On Error GoTo 0
+    
+    ' Initialize game variables
+    GameRunning = False
+    GamePaused = False
+    GameEnded = False
+    CurrentRound = 1
+    Score = 0
+    DucksShot = 0
+    DucksMissed = 0
+    Bullets = MaxBullets
+    PlayerShot = False
+    DucksPerRound = 5
+    DucksSpawned = 0
+    GameSpeed = 1.0
+    MouseX = 0
+    MouseY = 0
+End Sub

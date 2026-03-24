@@ -1,15 +1,4 @@
 Option Explicit
-
-'=======================
-' GLOBAL STATE
-'=======================
-
-Public Sprites As Collection
-Public GameRunning As Boolean
-
-Public FrameDelay As Double
-Public LastFrameTime As Double
-
 '=======================
 ' INITIALIZATION
 '=======================

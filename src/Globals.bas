@@ -1,47 +1,74 @@
-'Variables del estado del juego'
-Public GameRunning as Boolean 
-Public GamePaused as Boolean  
-Public GameEnded as Boolean
-Public CurrentRound as Integer 
-Public const MaxRound as integer = 20
+Option Explicit
+
+'=======================
+' GAME STATE VARIABLES
+'=======================
+
+Public GameRunning As Boolean
+Public GamePaused As Boolean
+Public GameEnded As Boolean
+Public CurrentRound As Integer
+Public Const MaxRound As Integer = 20
+
 Public ReloadTime As Double
 Public LastShotTime As Double
 Public DeltaTime As Double
 Public LastFrameTime As Double
 
-'Variables de puntuación y progreso'
-Public Score as Long 
-Public DucksShot as Integer 
-Public DucksMissed as Integer 
+'=======================
+' SCORE / PROGRESS
+'=======================
 
-'Variables del jugador/arma'
-Public Bullets as Integer 
-Public const MaxBullets as Integer = 3
+Public Score As Long
+Public DucksShot As Integer
+Public DucksMissed As Integer
+
+'=======================
+' PLAYER / WEAPON
+'=======================
+
+Public Bullets As Integer
+Public Const MaxBullets As Integer = 3
 Public PlayerShot As Boolean
 
-'Posición del Mouse'
-Public MouseX as Double
-Public MouseY as Double
+'=======================
+' MOUSE POSITION
+'=======================
 
-'Clase patos'
-Public Ducks as Collection
+Public MouseX As Double
+Public MouseY As Double
+
+'=======================
+' DUCKS
+'=======================
+
+Public Ducks As Collection
 Public DucksPerRound As Integer
 Public DucksSpawned As Integer
 Public SpawnDelay As Double
 Public LastSpawnTime As Double
 
-'Variables de velocidad'
-Public GameSpeed as Double
-Public const FrameDelay as Double = 0.0333
+'=======================
+' GAME SPEED AND FRAME
+'=======================
 
-'Referencias a las hojas del juego'
-Public Menusheet as Worksheet
-Public GameSheet as Worksheet
-Public PauseSheet as Worksheet
-Public SpriteSheet as Worksheet
+Public GameSpeed As Double
+Public Const FrameDelay As Double = 0.0333
 
-'Nombres de las hojas'
+'=======================
+' SHEET REFERENCES
+'=======================
+
+Public MenuSheet As Worksheet
+Public GameSheet As Worksheet
+Public PauseSheet As Worksheet
+Public SpriteSheet As Worksheet
+
+'=======================
+' SHEET NAMES (CONSTANTS)
+'=======================
+
 Public Const SHEET_GAME As String = "Game"
 Public Const SHEET_MENU As String = "Menu"
 Public Const SHEET_SPRITES As String = "Sprites"
-Public Const SHEET_Pause As String = "Pause"
+Public Const SHEET_PAUSE As String = "Pause"

@@ -5,7 +5,7 @@ Option Explicit
 '=======================
 
 Private m_ID As String
-Private m_Frame As Integer
+Private m_Frame As Long
 
 '=======================
 ' POSITION / MOVEMENT
@@ -23,51 +23,70 @@ Private m_VelY As Double
 
 Private m_Alive As Boolean
 
+Private Const MAX_FRAME As Long = 3
+Private Const SPRITE_SIZE As Double = 50
+
 '=======================
-' INITIALIZATION (reemplaza constructor)
+' INITIALIZATION
 '=======================
 
 Public Sub Init(ByVal duckID As String, ByVal startX As Double, ByVal startY As Double)
+    
     m_ID = duckID
     
     m_X = startX
     m_Y = startY
     
-    ' Velocidad inicial (puedes ajustar lógica)
+    Randomize
+    
     m_VelX = 2 + Rnd * 2
     m_VelY = -2 - Rnd * 2
     
     m_Frame = 1
     m_Alive = True
     
-    ' Crear sprite visual - usar módulo Sprites
-    Sprites.CreateDuckSprite m_ID, m_X, m_Y
+    ' Crear sprite visual
+    CreateDuckSprite m_ID, m_X, m_Y
+    
 End Sub
 
+'=======================
+' UPDATE
+'=======================
+
 Public Sub Update()
+    
     If Not m_Alive Then Exit Sub
     
     ' Movimiento
     m_X = m_X + m_VelX
     m_Y = m_Y + m_VelY
     
-    ' Rebote simple en bordes (ajusta límites)
+    ' Rebote en bordes
     If m_X < 0 Or m_X > 800 Then m_VelX = -m_VelX
     If m_Y < 0 Or m_Y > 400 Then m_VelY = -m_VelY
     
-    ' Animación
+    ' Animación controlada
     m_Frame = m_Frame + 1
-    Sprites.SetDuckFrame m_ID, m_Frame
+    If m_Frame > MAX_FRAME Then m_Frame = 1
     
-    ' Aplicar posición al sprite
+    SetDuckFrame m_ID, m_Frame
+    
     ApplyPosition
+    
 End Sub
 
+'=======================
+' POSITION APPLY
+'=======================
+
 Private Sub ApplyPosition()
+    Dim ws As Worksheet
     Dim shp As Shape
     
     On Error Resume Next
-    Set shp = GameSheet.Shapes("Sprite_Duck_" & m_ID)
+    Set ws = ThisWorkbook.Sheets(SHEET_SPRITES)
+    Set shp = ws.Shapes("Sprite_Duck_" & m_ID)
     On Error GoTo 0
     
     If shp Is Nothing Then Exit Sub
@@ -76,24 +95,61 @@ Private Sub ApplyPosition()
     shp.Top = m_Y
 End Sub
 
-Public Function IsHit(ByVal mouseX As Double, ByVal mouseY As Double) As Boolean
+'=======================
+' HIT DETECTION
+'=======================
+
+Public Function IsHit(ByVal x As Double, ByVal y As Double) As Boolean
+    
     Dim bounds As Variant
     
-    bounds = Sprites.GetDuckBounds(m_ID)
+    bounds = GetDuckBounds(m_ID)
     If IsEmpty(bounds) Then Exit Function
     
     IsHit = ( _
-        mouseX >= bounds(0) And mouseX <= bounds(2) And _
-        mouseY >= bounds(1) And mouseY <= bounds(3) _
+        x >= bounds(0) And x <= bounds(2) And _
+        y >= bounds(1) And y <= bounds(3) _
     )
+    
 End Function
 
+'=======================
+' STATE CHANGE
+'=======================
+
 Public Sub Kill()
+    
     If Not m_Alive Then Exit Sub
     
     m_Alive = False
-    Sprites.RemoveDuck m_ID
+    
+    RemoveDuck m_ID
+    
 End Sub
+
+'=======================
+' COLLISION PROPERTIES
+'=======================
+
+Public Property Get Left() As Double
+    Left = m_X
+End Property
+
+Public Property Get Right() As Double
+    Right = m_X + SPRITE_SIZE
+End Property
+
+Public Property Get Top() As Double
+    Top = m_Y
+End Property
+
+Public Property Get Bottom() As Double
+    Bottom = m_Y + SPRITE_SIZE
+End Property
+
+'=======================
+' GETTERS
+'=======================
 
 Public Property Get ID() As String
     ID = m_ID
@@ -111,6 +167,6 @@ Public Property Get Y() As Double
     Y = m_Y
 End Property
 
-Public Property Get Frame() As Integer
+Public Property Get Frame() As Long
     Frame = m_Frame
 End Property

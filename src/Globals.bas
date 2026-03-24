@@ -7,8 +7,18 @@ Option Explicit
 Public GameRunning As Boolean
 Public GamePaused As Boolean
 Public GameEnded As Boolean
-Public CurrentRound As Integer
-Public Const MaxRound As Integer = 20
+Public CurrentRound As Long
+Public Const MaxRound As Long = 20
+
+'=======================
+' SPRITES PATHS
+'=======================
+
+Public Const ASSETS_ROOT As String = "Assets\sprites\"
+
+Public Const PATH_DUCKS As String = "Sprites patos\"
+Public Const PATH_DOG As String = "Sprites perro\"
+Public Const PATH_BACKGROUNDS As String = "Fondos y otros\"
 
 '=======================
 ' TIMING
@@ -16,25 +26,26 @@ Public Const MaxRound As Integer = 20
 
 Public DeltaTime As Double
 Public LastFrameTime As Double
-Public Const FrameDelay As Double = 0.0333 ' ~30 FPS
+Public Const FrameDelay As Double = 0.0333
 
 Public ReloadTime As Double
 Public LastShotTime As Double
+Public LastSpawnTime As Double
 
 '=======================
 ' SCORE / PROGRESS
 '=======================
 
 Public Score As Long
-Public DucksShot As Integer
-Public DucksMissed As Integer
+Public DucksShot As Long
+Public DucksMissed As Long
 
 '=======================
 ' PLAYER / WEAPON
 '=======================
 
-Public Bullets As Integer
-Public Const MaxBullets As Integer = 3
+Public Bullets As Long
+Public Const MaxBullets As Long = 3
 Public PlayerShot As Boolean
 
 '=======================
@@ -49,10 +60,9 @@ Public MouseY As Double
 '=======================
 
 Public Ducks As Collection
-Public DucksPerRound As Integer
-Public DucksSpawned As Integer
+Public DucksPerRound As Long
+Public DucksSpawned As Long
 Public SpawnDelay As Double
-Public LastSpawnTime As Double
 
 '=======================
 ' GAME SPEED
@@ -69,7 +79,7 @@ Public MenuSheet As Worksheet
 Public PauseSheet As Worksheet
 
 '=======================
-' SHEET NAMES (CONSTANTS)
+' SHEET NAMES
 '=======================
 
 Public Const SHEET_GAME As String = "Game"
@@ -82,26 +92,44 @@ Public Const SHEET_SPRITES As String = "GameScreen"
 '=======================
 
 Public Sub InitializeGlobals()
-    ' Initialize worksheet references
-    On Error Resume Next
+
+    ' Sheets
     Set GameSheet = ThisWorkbook.Sheets(SHEET_GAME)
     Set MenuSheet = ThisWorkbook.Sheets(SHEET_MENU)
     Set PauseSheet = ThisWorkbook.Sheets(SHEET_PAUSE)
-    On Error GoTo 0
-    
-    ' Initialize game variables
+
+    ' Collections
+    Set Ducks = New Collection
+
+    ' Game state
     GameRunning = False
     GamePaused = False
     GameEnded = False
     CurrentRound = 1
+
+    ' Score
     Score = 0
     DucksShot = 0
     DucksMissed = 0
+
+    ' Player
     Bullets = MaxBullets
     PlayerShot = False
+    ReloadTime = 1#
+    LastShotTime = Timer
+
+    ' Ducks
     DucksPerRound = 5
     DucksSpawned = 0
-    GameSpeed = 1.0
+    SpawnDelay = 1#
+    LastSpawnTime = Timer
+
+    ' Timing
+    GameSpeed = 1#
+    LastFrameTime = Timer
+
+    ' Mouse
     MouseX = 0
     MouseY = 0
+
 End Sub

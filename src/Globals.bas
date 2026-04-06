@@ -93,9 +93,15 @@ Public Const SHEET_SPRITES As String = "GameScreen"
 '=======================
 
 Public Function SheetExists(ByVal sheetName As String) As Boolean
+    
+    Dim ws As Worksheet
+    
     On Error Resume Next
-    SheetExists = Not ThisWorkbook.Sheets(sheetName) Is Nothing
+    Set ws = ThisWorkbook.Sheets(sheetName)
     On Error GoTo 0
+    
+    SheetExists = (Not ws Is Nothing)
+    
 End Function
 
 Public Sub EnsureSheet(ByVal sheetName As String)
@@ -114,6 +120,7 @@ Public Sub CleanWorkbook()
 
     Dim ws As Worksheet
     Dim keepNames As Object
+    Dim sheetCount As Long
     
     Set keepNames = CreateObject("Scripting.Dictionary")
     
@@ -123,15 +130,24 @@ Public Sub CleanWorkbook()
     
     Application.DisplayAlerts = False
     
-    For Each ws In ThisWorkbook.Worksheets
+    ' Cache count before loop
+    sheetCount = ThisWorkbook.Worksheets.Count
+    
+    ' Iterate backward to avoid collection invalidation during deletion
+    Dim i As Long
+    For i = sheetCount To 1 Step -1
         
         If ThisWorkbook.Worksheets.Count <= 1 Then Exit For
         
+        Set ws = ThisWorkbook.Worksheets(i)
+        
         If Not keepNames.exists(ws.Name) Then
+            On Error Resume Next
             ws.Delete
+            On Error GoTo 0
         End If
         
-    Next ws
+    Next i
     
     Application.DisplayAlerts = True
 
@@ -155,13 +171,22 @@ Public Sub InitializeGlobals()
     EnsureSheet SHEET_MENU
     EnsureSheet SHEET_PAUSE
 
+
     '-----------------------
     ' 3. ASSIGN REFERENCES
     '-----------------------
+    On Error Resume Next
     Set GameSheet = ThisWorkbook.Sheets(SHEET_GAME)
     Set MenuSheet = ThisWorkbook.Sheets(SHEET_MENU)
     Set PauseSheet = ThisWorkbook.Sheets(SHEET_PAUSE)
-
+    On Error GoTo 0
+    
+    ' Validate sheet references were assigned
+    If GameSheet Is Nothing Or MenuSheet Is Nothing Or PauseSheet Is Nothing Then
+        Debug.Print "❌ ERROR: Failed to initialize sheet references"
+        Exit Sub
+    End If
+    
     '-----------------------
     ' 4. COLLECTIONS
     '-----------------------

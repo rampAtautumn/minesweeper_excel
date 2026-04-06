@@ -97,9 +97,11 @@ Private Sub RunGameLoop()
 
     Dim currentTime As Double
     Dim accumulator As Double
+    Dim frameCounter As Long
 
     LastFrameTime = Timer
     accumulator = 0#
+    frameCounter = 0
 
     Do While GameRunning
 
@@ -118,20 +120,21 @@ Private Sub RunGameLoop()
         If accumulator >= TargetFrameTime Then
 
             If Not GamePaused Then
-
                 UpdateDuckSpawn
                 UpdateDucksSafe
                 CheckRoundEnd
-
                 UpdateUI
-
             End If
 
             accumulator = accumulator - TargetFrameTime
+            frameCounter = frameCounter + 1
 
         End If
 
-        DoEvents
+        ' DoEvents only every 2 frames to avoid performance hit
+        If frameCounter Mod 2 = 0 Then
+            DoEvents
+        End If
 
     Loop
 
@@ -142,70 +145,35 @@ End Sub
 '=======================
 
 Public Sub UpdateDuckSpawn()
-
-    If DucksSpawned < DucksPerRound Then
-        
-        If Timer - LastSpawnTime >= SpawnDelay Then
-            
-            Dim id As String
-            id = "duck_" & DucksSpawned
-            
-            CreateDuckSprite id, 50, 100 + DucksSpawned * 60
-            
-            Ducks.Add id
-            
-            DucksSpawned = DucksSpawned + 1
-            LastSpawnTime = Timer
-            
-        End If
-        
-    End If
-
+    DuckManager.UpdateDuckSpawn
 End Sub
 
 Public Sub UpdateDucksSafe()
-
-    Dim i As Long
-    Dim id As String
-    
-    For i = 1 To Ducks.Count
-        
-        id = Ducks(i)
-        
-        ' Movimiento simple (derecha)
-        MoveDuck id, 120 * DeltaTime, 0
-        
-    Next i
-
+    DuckManager.UpdateDucksSafe
 End Sub
 
 Public Sub CheckRoundEnd()
-
-    If DucksSpawned >= DucksPerRound Then
-        
-        ' Reinicio simple (para prueba continua)
-        DucksSpawned = 0
-        LastSpawnTime = Timer
-        
-    End If
-
+    DuckManager.CheckRoundEnd
 End Sub
 
 '=======================
 ' UI
 '=======================
 
+
 Private Sub UpdateUI()
 
+    Dim ws As Worksheet
+    
     On Error Resume Next
-
-    With ThisWorkbook.Sheets(SHEET_SPRITES)
-        .Range("A1").Value = "Score: " & Score
-        .Range("A2").Value = "Round: " & CurrentRound
-        .Range("A3").Value = "Bullets: " & Bullets
-    End With
-
+    Set ws = ThisWorkbook.Sheets(SHEET_SPRITES)
     On Error GoTo 0
+    
+    If ws Is Nothing Then Exit Sub
+
+    ws.Range("A1").Value = "Score: " & Score
+    ws.Range("A2").Value = "Round: " & CurrentRound
+    ws.Range("A3").Value = "Bullets: " & Bullets
 
 End Sub
 
@@ -282,7 +250,7 @@ Public Sub OnMouseClick()
     If Not GameRunning Then Exit Sub
     If GamePaused Then Exit Sub
 
-    HandleShot MouseX, MouseY
+    DuckManager.HandleShot MouseX, MouseY
 
 End Sub
 

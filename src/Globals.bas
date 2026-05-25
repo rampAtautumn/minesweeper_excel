@@ -1,11 +1,6 @@
 Attribute VB_Name = "Globals"
 Option Explicit
 
-# mod_globals.bas
-
-```vb
-Attribute VB_Name = "mod_globals"
-
 Option Explicit
 
 '====================================================

@@ -1,182 +1,3 @@
-Attribute VB_Name = " Engine"
-Option Explicit
-
-'====================================================
-' INITIALIZATION
-'====================================================
-
-Public Sub InitializeGlobals()
-
-    Set GameSheet = ThisWorkbook.Worksheets("Game")
-
-    TileSize = 24
-
-    BoardOriginRow = 5
-    BoardOriginCol = 2
-
-    RemainingFlags = 0
-
-    GameStarted = False
-    GameOver = False
-    GameWon = False
-
-    ExplodedRow = -1
-    ExplodedCol = -1
-
-    CurrentElapsedSeconds = 0
-
-    TimerScheduled = False
-
-End Sub
-
-'====================================================
-' BOARD MEMORY ALLOCATION
-'====================================================
-
-Public Sub AllocateBoardMemory()
-
-    ReDim tablero(1 To BoardRows, 1 To BoardCols)
-    ReDim revelado(1 To BoardRows, 1 To BoardCols)
-    ReDim bandera(1 To BoardRows, 1 To BoardCols)
-
-    ReDim DirtyTiles(1 To BoardRows, 1 To BoardCols)
-
-    ReDim TileShapes(1 To BoardRows, 1 To BoardCols)
-
-    ReDim LastRenderedSprite(1 To BoardRows, 1 To BoardCols)
-
-End Sub
-
-'====================================================
-' RESET ARRAYS
-'====================================================
-
-Public Sub ResetBoardArrays()
-
-    Dim r As Long
-    Dim c As Long
-
-    For r = 1 To BoardRows
-
-        For c = 1 To BoardCols
-
-            tablero(r, c) = 0
-            revelado(r, c) = False
-            bandera(r, c) = False
-            DirtyTiles(r, c) = True
-
-            LastRenderedSprite(r, c) = vbNullString
-
-            Set TileShapes(r, c) = Nothing
-
-        Next c
-
-    Next r
-
-End Sub
-
-'====================================================
-' TILE NAME HELPERS
-'====================================================
-
-Public Function GetTileShapeName(ByVal RowIndex As Long, ByVal ColIndex As Long) As String
-
-    GetTileShapeName = TILE_PREFIX & RowIndex & "_" & ColIndex
-
-End Function
-
-'====================================================
-' CELL HELPERS
-'====================================================
-
-Public Function GetTileCell(ByVal RowIndex As Long, ByVal ColIndex As Long) As Range
-
-    Set GetTileCell = GameSheet.Cells(
-        BoardOriginRow + RowIndex - 1,
-        BoardOriginCol + ColIndex - 1
-    )
-
-End Function
-
-'====================================================
-' BOUNDS CHECKING
-'====================================================
-
-Public Function IsWithinBounds(ByVal RowIndex As Long, ByVal ColIndex As Long) As Boolean
-
-    IsWithinBounds = _
-        RowIndex >= 1 And _
-        RowIndex <= BoardRows And _
-        ColIndex >= 1 And _
-        ColIndex <= BoardCols
-
-End Function
-
-'====================================================
-' DIRTY TILE SYSTEM
-'====================================================
-
-Public Sub MarkTileDirty(ByVal RowIndex As Long, ByVal ColIndex As Long)
-
-    If Not IsWithinBounds(RowIndex, ColIndex) Then
-        Exit Sub
-    End If
-
-    DirtyTiles(RowIndex, ColIndex) = True
-
-End Sub
-
-Public Sub MarkEntireBoardDirty()
-
-    Dim r As Long
-    Dim c As Long
-
-    For r = 1 To BoardRows
-
-        For c = 1 To BoardCols
-
-            DirtyTiles(r, c) = True
-
-        Next c
-
-    Next r
-
-End Sub
-
-'====================================================
-' DIFFICULTY CONFIGURATION
-'====================================================
-
-Public Sub ConfigureEasyMode()
-
-    BoardRows = 8
-    BoardCols = 8
-    MineCount = 10
-
-End Sub
-
-Public Sub ConfigureMediumMode()
-
-    BoardRows = 16
-    BoardCols = 16
-    MineCount = 40
-
-End Sub
-
-Public Sub ConfigureHardMode()
-
-    BoardRows = 16
-    BoardCols = 30
-    MineCount = 99
-
-End Sub
-```
-
----
-
-# mod_engine.bas
-
-```vb
 Attribute VB_Name = "mod_engine"
 
 Option Explicit
@@ -187,31 +8,74 @@ Option Explicit
 
 Public Sub BootGame()
 
+    On Error GoTo ErrorHandler
+
     Application.ScreenUpdating = False
+
+    '================================================
+    ' CORE INITIALIZATION
+    '================================================
 
     InitializeGlobals
 
-    ConfigureEasyMode
+    If CurrentDifficulty = 0 Then
+
+        ConfigureEasyMode
+
+    End If
 
     AllocateBoardMemory
 
     ResetBoardArrays
 
-    InitializeEnvironment
+    '================================================
+    ' ASSET SYSTEM
+    '================================================
 
     LoadAssets
 
     If Not VerifyAssets() Then
 
-        MsgBox "Missing sprite assets.", vbCritical
+        MsgBox _
+            "Missing sprite assets.", _
+            vbCritical
 
-        Application.ScreenUpdating = True
-
-        Exit Sub
+        GoTo Cleanup
 
     End If
 
+    '================================================
+    ' ENVIRONMENT
+    '================================================
+
+    InitializeEnvironment
+
+    SetupWorkspace
+
+    ConfigureBoardLayout
+
+    ApplyClassicWindowStyle
+
+    '================================================
+    ' GAME INITIALIZATION
+    '================================================
+
     InitializeBoard
+
+    RemainingFlags = MineCount
+
+    CurrentElapsedSeconds = 0
+
+    GameStarted = False
+    GameOver = False
+    GameWon = False
+
+    ExplodedRow = -1
+    ExplodedCol = -1
+
+    '================================================
+    ' VISUAL INITIALIZATION
+    '================================================
 
     CreateBoardVisuals
 
@@ -219,9 +83,22 @@ Public Sub BootGame()
 
     RenderBoard
 
-    StartGameTimer
+    RefreshHUD
+
+Cleanup:
 
     Application.ScreenUpdating = True
+
+    Exit Sub
+
+ErrorHandler:
+
+    Application.ScreenUpdating = True
+
+    MsgBox _
+        "BootGame Error:" & vbCrLf & _
+        Err.Description, _
+        vbCritical
 
 End Sub
 
@@ -233,19 +110,14 @@ Public Sub InitializeEnvironment()
 
     With GameSheet
 
-        .Cells.Clear
+        .Cells.RowHeight = TileSize
 
-        .Activate
+        .Cells.ColumnWidth = 2.8
 
-        ActiveWindow.DisplayGridlines = False
-
-        ActiveWindow.DisplayHeadings = False
-
-        ActiveWindow.Zoom = 100
+        .Cells.Interior.Color = _
+            RGB(192, 192, 192)
 
     End With
-
-    ConfigureBoardLayout
 
 End Sub
 
@@ -260,25 +132,31 @@ Public Sub ConfigureBoardLayout()
 
     For r = 1 To BoardRows
 
-        GameSheet.Rows(BoardOriginRow + r - 1).RowHeight = TileSize
+        GameSheet.Rows( _
+            BoardOriginRow + r - 1 _
+        ).RowHeight = TileSize
 
     Next r
 
     For c = 1 To BoardCols
 
-        GameSheet.Columns(BoardOriginCol + c - 1).ColumnWidth = TileSize / 5.3
+        GameSheet.Columns( _
+            BoardOriginCol + c - 1 _
+        ).ColumnWidth = TileSize / 5.3
 
     Next c
 
 End Sub
 
 '====================================================
-' INITIAL BOARD CREATION
+' BOARD INITIALIZATION
 '====================================================
 
 Public Sub InitializeBoard()
 
     Randomize
+
+    InitializeEmptyBoard
 
     GenerateMines
 
@@ -287,7 +165,23 @@ Public Sub InitializeBoard()
 End Sub
 
 '====================================================
-' GAME START
+' START GAME SESSION
+'====================================================
+
+Public Sub StartGameSession()
+
+    If GameStarted Then
+        Exit Sub
+    End If
+
+    GameStarted = True
+
+    StartGameTimer
+
+End Sub
+
+'====================================================
+' START NEW GAME
 '====================================================
 
 Public Sub StartNewGame()
@@ -299,7 +193,7 @@ Public Sub StartNewGame()
 End Sub
 
 '====================================================
-' GAME RESET
+' RESET GAME
 '====================================================
 
 Public Sub ResetGame()
@@ -308,30 +202,39 @@ Public Sub ResetGame()
 
     StopGameTimer
 
+    ClearHoverEffect
+
     ClearBoardSprites
 
     ClearHUD
 
     ResetBoardArrays
 
+    RemainingFlags = MineCount
+
+    CurrentElapsedSeconds = 0
+
+    GameStarted = False
     GameOver = False
     GameWon = False
-    GameStarted = False
 
     ExplodedRow = -1
     ExplodedCol = -1
 
-    CurrentElapsedSeconds = 0
+    MarkEntireBoardDirty
 
     Application.ScreenUpdating = True
 
 End Sub
 
 '====================================================
-' GAME OVER FLOW
+' HANDLE GAME OVER
 '====================================================
 
-Public Sub HandleGameOver(ByVal MineRow As Long, ByVal MineCol As Long)
+Public Sub HandleGameOver( _
+    ByVal MineRow As Long, _
+    ByVal MineCol As Long _
+)
 
     If GameOver Then
         Exit Sub
@@ -346,16 +249,16 @@ Public Sub HandleGameOver(ByVal MineRow As Long, ByVal MineCol As Long)
 
     MarkEntireBoardDirty
 
+    PlayLossEffect
+
     RefreshBoard
 
     StopGameTimer
 
-    MsgBox "Game Over", vbExclamation
-
 End Sub
 
 '====================================================
-' GAME WIN FLOW
+' HANDLE VICTORY
 '====================================================
 
 Public Sub HandleVictory()
@@ -365,17 +268,45 @@ Public Sub HandleVictory()
     End If
 
     GameWon = True
-
     GameOver = True
 
     StopGameTimer
 
-    MsgBox "Victory", vbInformation
+    PlayVictoryEffect
+
+    RefreshHUD
 
 End Sub
 
 '====================================================
-' TIMER SYSTEM
+' REVEAL ALL MINES
+'====================================================
+
+Public Sub RevealAllMines()
+
+    Dim r As Long
+    Dim c As Long
+
+    For r = 1 To BoardRows
+
+        For c = 1 To BoardCols
+
+            If tablero(r, c) = -1 Then
+
+                revelado(r, c) = True
+
+                DirtyTiles(r, c) = True
+
+            End If
+
+        Next c
+
+    Next r
+
+End Sub
+
+'====================================================
+' TIMER START
 '====================================================
 
 Public Sub StartGameTimer()
@@ -390,13 +321,18 @@ Public Sub StartGameTimer()
 
 End Sub
 
+'====================================================
+' TIMER SCHEDULING
+'====================================================
+
 Public Sub ScheduleNextTimerTick()
 
     If GameOver Then
         Exit Sub
     End If
 
-    NextTimerTick = Now + TimeSerial(0, 0, 1)
+    NextTimerTick = _
+        Now + TimeSerial(0, 0, 1)
 
     TimerScheduled = True
 
@@ -407,6 +343,10 @@ Public Sub ScheduleNextTimerTick()
 
 End Sub
 
+'====================================================
+' TIMER TICK
+'====================================================
+
 Public Sub TimerTick()
 
     TimerScheduled = False
@@ -415,13 +355,26 @@ Public Sub TimerTick()
         Exit Sub
     End If
 
-    CurrentElapsedSeconds = DateDiff("s", GameStartTime, Now)
+    If Not GameStarted Then
+        Exit Sub
+    End If
+
+    CurrentElapsedSeconds = _
+        DateDiff( _
+            "s", _
+            GameStartTime, _
+            Now _
+        )
 
     UpdateTimerHUD
 
     ScheduleNextTimerTick
 
 End Sub
+
+'====================================================
+' TIMER STOP
+'====================================================
 
 Public Sub StopGameTimer()
 
@@ -448,11 +401,98 @@ End Sub
 
 Public Sub ShutdownGame()
 
+    On Error Resume Next
+
     StopGameTimer
+
+    ClearHoverEffect
 
     ClearBoardSprites
 
     ClearHUD
 
+    GameSheet.ScrollArea = vbNullString
+
+    ActiveWindow.DisplayGridlines = True
+
+    ActiveWindow.DisplayHeadings = True
+
+    ActiveWindow.DisplayWorkbookTabs = True
+
+    Application.DisplayFormulaBar = True
+
+    Application.DisplayStatusBar = True
+
+    GameStarted = False
+    GameOver = False
+    GameWon = False
+
+    On Error GoTo 0
+
 End Sub
-```
+
+'====================================================
+' FULL REFRESH
+'====================================================
+
+Public Sub RefreshEntireGame()
+
+    RefreshBoard
+
+    RefreshHUD
+
+End Sub
+
+'====================================================
+' HARD REFRESH
+'====================================================
+
+Public Sub HardRefresh()
+
+    Application.ScreenUpdating = False
+
+    MarkEntireBoardDirty
+
+    RefreshBoard
+
+    RefreshHUD
+
+    Application.ScreenUpdating = True
+
+End Sub
+
+'====================================================
+' DEBUG ENGINE STATE
+'====================================================
+
+Public Sub DebugPrintEngineState()
+
+    Debug.Print _
+        "===== ENGINE STATE ====="
+
+    Debug.Print _
+        "GameStarted: " & GameStarted
+
+    Debug.Print _
+        "GameOver: " & GameOver
+
+    Debug.Print _
+        "GameWon: " & GameWon
+
+    Debug.Print _
+        "BoardRows: " & BoardRows
+
+    Debug.Print _
+        "BoardCols: " & BoardCols
+
+    Debug.Print _
+        "MineCount: " & MineCount
+
+    Debug.Print _
+        "RemainingFlags: " & RemainingFlags
+
+    Debug.Print _
+        "ElapsedSeconds: " & _
+        CurrentElapsedSeconds
+
+End Sub

@@ -324,7 +324,11 @@ Public Sub RealignBoardShapes()
 
     Dim TileCell As Range
 
-    If TileShapes Is Nothing Then
+    '============================================
+    ' VALIDATE ARRAY
+    '============================================
+
+    If Not IsArrayAllocated(TileShapes) Then
         Exit Sub
     End If
 

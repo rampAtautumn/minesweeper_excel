@@ -50,6 +50,8 @@ Public RemainingFlags As Long
 Public ExplodedRow As Long
 Public ExplodedCol As Long
 
+Public FlagModeEnabled As Boolean
+Public FlagButtonShape As Shape
 '====================================================
 ' TIMER SYSTEM
 '====================================================
@@ -267,3 +269,17 @@ Public Sub MarkEntireBoardDirty()
 
 End Sub
 
+Public Function IsArrayAllocated( _
+    ByRef Arr As Variant _
+) As Boolean
+
+    On Error Resume Next
+
+    IsArrayAllocated = _
+        IsArray(Arr) And _
+        Not IsError(LBound(Arr, 1)) And _
+        LBound(Arr, 1) <= UBound(Arr, 1)
+
+    On Error GoTo 0
+
+End Function

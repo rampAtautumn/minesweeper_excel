@@ -111,10 +111,7 @@ End Sub
 Private Sub ResetHudState()
 
     InitializeHUD
-
-    UpdateMineCounterHUD
-
-    UpdateTimerHUD
+    RefreshHUD
 
 End Sub
 
@@ -246,9 +243,58 @@ End Function
 
 Public Sub RestartEngine()
 
-    HardResetGame
+    Application.ScreenUpdating = False
 
-    BootGame
+    StopGameTimer
+
+    ClearHoverEffect
+
+    ClearBoardSprites
+
+    ClearHUD
+
+    '============================================
+    ' DESTROY OLD MEMORY
+    '============================================
+
+    Erase tablero
+    Erase revelado
+    Erase bandera
+
+    Erase DirtyTiles
+    Erase TileShapes
+    Erase LastRenderedSprite
+
+    '============================================
+    ' REALLOCATE NEW MEMORY
+    '============================================
+
+    AllocateBoardMemory
+
+    '============================================
+    ' RESET DATA
+    '============================================
+
+    InitializeBoard
+
+    RemainingFlags = MineCount
+
+    CurrentElapsedSeconds = 0
+
+    GameStarted = False
+    GameOver = False
+    GameWon = False
+
+    ExplodedRow = -1
+    ExplodedCol = -1
+
+    '============================================
+    ' REBUILD VISUALS
+    '============================================
+
+    RebuildVisualLayer
+
+    Application.ScreenUpdating = True
 
 End Sub
 
@@ -260,7 +306,8 @@ Public Sub RestartEasy()
 
     HardResetGame
 
-    ConfigureEasyMode
+    SetEasyDifficulty
+
 
     BootGame
 
@@ -270,7 +317,8 @@ Public Sub RestartMedium()
 
     HardResetGame
 
-    ConfigureMediumMode
+    SetMediumDifficulty
+
 
     BootGame
 
@@ -280,7 +328,7 @@ Public Sub RestartHard()
 
     HardResetGame
 
-    ConfigureHardMode
+    SetHardDifficulty
 
     BootGame
 

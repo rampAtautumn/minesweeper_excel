@@ -3,42 +3,45 @@ Attribute VB_Name = "mod_ui"
 Option Explicit
 
 '====================================================
-' HUD CONFIGURATION
+' HUD CONSTANTS
 '====================================================
 
-Public Const HUD_TOP_ROW As Long = 1
-Public Const HUD_LEFT_COL As Long = 2
+Private Const HUD_MARGIN_X As Double = 8
 
-Public Const HUD_HEIGHT As Double = 32
+Private Const HUD_PANEL_HEIGHT As Double = 42
 
-Public Const HUD_DIGIT_WIDTH As Double = 24
-Public Const HUD_DIGIT_HEIGHT As Double = 32
-
-Public Const HUD_SPACING As Double = 2
+Private Const RESET_BUTTON_SIZE As Double = 30
 
 '====================================================
-' HUD INITIALIZATION
+' HUD REFERENCES
+'====================================================
+
+Public RestartButtonShape As Shape
+
+Public HudMineLabel As Shape
+Public HudTimerLabel As Shape
+
+'====================================================
+' INITIALIZE HUD
 '====================================================
 
 Public Sub InitializeHUD()
 
-    Application.ScreenUpdating = False
+    ClearHUD
 
     CreateHudBackground
 
-    CreateMineCounter
-
-    CreateTimerDisplay
+    CreateMineLabel
 
     CreateRestartButton
 
-    UpdateMineCounterHUD
+    CreateFlagModeButton
 
-    UpdateTimerHUD
+    CreateTimerLabel
 
     HudInitialized = True
 
-    Application.ScreenUpdating = True
+    RefreshHUD
 
 End Sub
 
@@ -48,358 +51,541 @@ End Sub
 
 Private Sub CreateHudBackground()
 
-    Dim HudRange As Range
+    Dim BoardLeft As Double
+    Dim BoardTop As Double
+    Dim BoardWidth As Double
 
-    SafeDeleteShape HUD_PREFIX & "background"
+    SafeDeleteShape "hud_background"
 
-    Set HudRange = _
-        GameSheet.Range( _
-            GameSheet.Cells(1, 1), _
-            GameSheet.Cells(3, BoardCols + 4) _
-        )
+    BoardLeft = GetBoardLeft()
+    BoardTop = GetHudTop()
+    BoardWidth = GetBoardWidth()
 
     With GameSheet.Shapes.AddShape( _
         msoShapeRectangle, _
-        HudRange.Left, _
-        HudRange.Top, _
-        HudRange.Width, _
-        HudRange.Height _
+        BoardLeft, _
+        BoardTop, _
+        BoardWidth, _
+        HUD_PANEL_HEIGHT _
     )
 
-        .Name = HUD_PREFIX & "background"
+        .Name = "hud_background"
 
-        .Fill.ForeColor.RGB = RGB(45, 45, 45)
+        .Fill.ForeColor.RGB = RGB(192, 192, 192)
+
+        .Line.ForeColor.RGB = RGB(110, 110, 110)
+
+    End With
+
+End Sub
+
+'====================================================
+' CREATE MINE LABEL
+'====================================================
+
+Private Sub CreateMineLabel()
+
+    SafeDeleteShape "hud_mines"
+
+    Set HudMineLabel = _
+        GameSheet.Shapes.AddTextbox( _
+            msoTextOrientationHorizontal, _
+            GetBoardLeft() + 8, _
+            GetHudTop() + 8, _
+            90, _
+            22 _
+        )
+
+    HudMineLabel.Name = "hud_mines"
+
+    With HudMineLabel
+
+        .Fill.Visible = msoFalse
 
         .Line.Visible = msoFalse
 
-        .Placement = xlMoveAndSize
+        .TextFrame2.TextRange.Font.Size = 12
+
+        .TextFrame2.TextRange.Font.Bold = msoTrue
+
+        .TextFrame2.TextRange.Text = _
+            "Mines: " & RemainingFlags
 
     End With
 
 End Sub
 
 '====================================================
-' MINE COUNTER CREATION
+' CREATE TIMER LABEL
 '====================================================
 
-Private Sub CreateMineCounter()
+Private Sub CreateTimerLabel()
 
-    Dim i As Long
+    SafeDeleteShape "hud_timer"
 
-    Dim ShapeName As String
-
-    Dim LeftPos As Double
-    Dim TopPos As Double
-
-    LeftPos = _
-        GameSheet.Cells(2, 2).Left
-
-    TopPos = _
-        GameSheet.Cells(2, 2).Top
-
-    For i = 1 To 3
-
-        ShapeName = _
-            HUD_PREFIX & _
-            "mine_digit_" & i
-
-        SafeDeleteShape ShapeName
-
-        With GameSheet.Shapes.AddPicture( _
-            Filename:=GetSpritePath("score_0"), _
-            LinkToFile:=msoFalse, _
-            SaveWithDocument:=msoTrue, _
-            Left:=LeftPos, _
-            Top:=TopPos, _
-            Width:=HUD_DIGIT_WIDTH, _
-            Height:=HUD_DIGIT_HEIGHT _
+    Set HudTimerLabel = _
+        GameSheet.Shapes.AddTextbox( _
+            msoTextOrientationHorizontal, _
+            GetBoardLeft() + GetBoardWidth() - 90, _
+            GetHudTop() + 8, _
+            80, _
+            22 _
         )
 
-            .Name = ShapeName
+    HudTimerLabel.Name = "hud_timer"
 
-            .Placement = xlMoveAndSize
+    With HudTimerLabel
 
-            .LockAspectRatio = msoFalse
+        .Fill.Visible = msoFalse
 
-        End With
+        .Line.Visible = msoFalse
 
-        LeftPos = _
-            LeftPos + HUD_DIGIT_WIDTH
+        .TextFrame2.TextRange.Font.Size = 12
 
-    Next i
+        .TextFrame2.TextRange.Font.Bold = msoTrue
+
+        .TextFrame2.TextRange.Text = "Time: 0"
+
+    End With
 
 End Sub
 
 '====================================================
-' TIMER DISPLAY CREATION
+' CREATE RESTART BUTTON
 '====================================================
 
-Private Sub CreateTimerDisplay()
+Public Sub CreateRestartButton()
 
-    Dim i As Long
+    Dim BtnLeft As Double
+    Dim BtnTop As Double
 
-    Dim ShapeName As String
+    SafeDeleteShape "restart_button"
 
-    Dim LeftPos As Double
-    Dim TopPos As Double
+    BtnLeft = GetRestartButtonLeft()
+    BtnTop = GetRestartButtonTop()
 
-    LeftPos = _
-        GameSheet.Cells(2, BoardCols - 1).Left
-
-    TopPos = _
-        GameSheet.Cells(2, BoardCols - 1).Top
-
-    For i = 1 To 3
-
-        ShapeName = _
-            HUD_PREFIX & _
-            "timer_digit_" & i
-
-        SafeDeleteShape ShapeName
-
-        With GameSheet.Shapes.AddPicture( _
-            Filename:=GetSpritePath("score_0"), _
-            LinkToFile:=msoFalse, _
-            SaveWithDocument:=msoTrue, _
-            Left:=LeftPos, _
-            Top:=TopPos, _
-            Width:=HUD_DIGIT_WIDTH, _
-            Height:=HUD_DIGIT_HEIGHT _
-        )
-
-            .Name = ShapeName
-
-            .Placement = xlMoveAndSize
-
-            .LockAspectRatio = msoFalse
-
-        End With
-
-        LeftPos = _
-            LeftPos + HUD_DIGIT_WIDTH
-
-    Next i
-
-End Sub
-
-'====================================================
-' RESTART BUTTON
-'====================================================
-
-Private Sub CreateRestartButton()
-
-    Dim ButtonCell As Range
-
-    Dim RestartButton As Shape
-
-    SafeDeleteShape HUD_PREFIX & "restart"
-
-    Set ButtonCell = _
-        GameSheet.Cells(2, _
-            Int(BoardCols / 2))
-
-    Set RestartButton = _
+    Set RestartButtonShape = _
         GameSheet.Shapes.AddShape( _
             msoShapeRoundedRectangle, _
-            ButtonCell.Left, _
-            ButtonCell.Top, _
-            60, _
-            32 _
+            BtnLeft, _
+            BtnTop, _
+            RESET_BUTTON_SIZE, _
+            RESET_BUTTON_SIZE _
         )
 
-    With RestartButton
+    RestartButtonShape.Name = _
+        "restart_button"
 
-        .Name = HUD_PREFIX & "restart"
+    With RestartButtonShape
 
-        .TextFrame2.TextRange.Text = "RESET"
+        .Fill.ForeColor.RGB = _
+            RGB(235, 235, 235)
 
-        .OnAction = "HandleRestartButton"
+        .Line.ForeColor.RGB = _
+            RGB(90, 90, 90)
 
-        .Fill.ForeColor.RGB = RGB(220, 220, 220)
+        .Line.Weight = 1.5
 
-        .Line.ForeColor.RGB = RGB(90, 90, 90)
+        .TextFrame2.TextRange.Text = ":)"
 
-        .Placement = xlMoveAndSize
+        .TextFrame2.TextRange.Font.Size = 14
+
+        .TextFrame2.TextRange.Font.Bold = msoTrue
+
+        .TextFrame2.VerticalAnchor = _
+            msoAnchorMiddle
+
+        .TextFrame2.TextRange.ParagraphFormat.Alignment = _
+            msoAlignCenter
+
+        .OnAction = _
+            "'" & ThisWorkbook.Name & "'!StartNewGame"
+
+    End With
+
+End Sub
+Public Sub CreateFlagModeButton()
+
+    Dim BtnLeft As Double
+    Dim BtnTop As Double
+
+    SafeDeleteShape "flag_mode_button"
+
+    BtnLeft = _
+        GetBoardLeft() + _
+        GetBoardWidth() + 12
+
+    BtnTop = _
+        GetHudTop()
+
+    Set FlagButtonShape = _
+        GameSheet.Shapes.AddShape( _
+            msoShapeRoundedRectangle, _
+            BtnLeft, _
+            BtnTop, _
+            70, _
+            24 _
+        )
+
+    FlagButtonShape.Name = _
+        "flag_mode_button"
+
+    With FlagButtonShape
+
+        .TextFrame2.TextRange.Text = _
+            "FLAG: OFF"
+
+        .Fill.ForeColor.RGB = _
+            RGB(220, 220, 220)
+
+        .Line.ForeColor.RGB = _
+            RGB(90, 90, 90)
+
+        .OnAction = _
+            "ToggleFlagMode"
 
     End With
 
 End Sub
 
 '====================================================
-' MINE COUNTER UPDATE
-'====================================================
-
-Public Sub UpdateMineCounterHUD()
-
-    UpdateHudNumber _
-        RemainingFlags, _
-        HUD_PREFIX & "mine_digit_"
-
-End Sub
-
-'====================================================
-' TIMER UPDATE
-'====================================================
-
-Public Sub UpdateTimerHUD()
-
-    UpdateHudNumber _
-        CurrentElapsedSeconds, _
-        HUD_PREFIX & "timer_digit_"
-
-End Sub
-
-'====================================================
-' HUD NUMBER RENDERING
-'====================================================
-
-Private Sub UpdateHudNumber( _
-    ByVal NumericValue As Long, _
-    ByVal ShapePrefix As String _
-)
-
-    Dim DigitsText As String
-
-    Dim i As Long
-
-    Dim DigitValue As Long
-
-    Dim ShapeName As String
-
-    Dim ExistingShape As Shape
-
-    NumericValue = Abs(NumericValue)
-
-    If NumericValue > 999 Then
-        NumericValue = 999
-    End If
-
-    DigitsText = _
-        Right$("000" & CStr(NumericValue), 3)
-
-    For i = 1 To 3
-
-        DigitValue = _
-            CLng(Mid$(DigitsText, i, 1))
-
-        ShapeName = _
-            ShapePrefix & i
-
-        If ShapeExists(ShapeName) Then
-
-            Set ExistingShape = _
-                GameSheet.Shapes(ShapeName)
-
-            ExistingShape.Fill.UserPicture _
-                GetSpritePath( _
-                    GetHudDigitSprite(DigitValue) _
-                )
-
-        End If
-
-    Next i
-
-End Sub
-
-'====================================================
-' HUD CLEANUP
-'====================================================
-
-Public Sub ClearHUD()
-
-    Dim shp As Shape
-
-    Dim ShapesToDelete As Collection
-
-    Dim Item As Variant
-
-    Set ShapesToDelete = New Collection
-
-    For Each shp In GameSheet.Shapes
-
-        If Left$(shp.Name, Len(HUD_PREFIX)) = _
-            HUD_PREFIX Then
-
-            ShapesToDelete.Add shp.Name
-
-        End If
-
-    Next shp
-
-    For Each Item In ShapesToDelete
-
-        SafeDeleteShape CStr(Item)
-
-    Next Item
-
-    HudInitialized = False
-
-End Sub
-
-'====================================================
-' HUD REFRESH
+' REFRESH HUD
 '====================================================
 
 Public Sub RefreshHUD()
-
-    UpdateMineCounterHUD
-
-    UpdateTimerHUD
-
-End Sub
-
-'====================================================
-' SHAPE EXISTENCE CHECK
-'====================================================
-
-Private Function ShapeExists( _
-    ByVal ShapeName As String _
-) As Boolean
-
-    On Error Resume Next
-
-    ShapeExists = _
-        Not GameSheet.Shapes(ShapeName) Is Nothing
-
-    On Error GoTo 0
-
-End Function
-
-'====================================================
-' BOARD/HUD ALIGNMENT
-'====================================================
-
-Public Sub RealignHUD()
 
     If Not HudInitialized Then
         Exit Sub
     End If
 
-    ClearHUD
+    If Not HudMineLabel Is Nothing Then
 
-    InitializeHUD
+        HudMineLabel.TextFrame2.TextRange.Text = _
+            "Mines: " & RemainingFlags
+
+    End If
+
+    If Not HudTimerLabel Is Nothing Then
+
+        HudTimerLabel.TextFrame2.TextRange.Text = _
+            "Time: " & CurrentElapsedSeconds
+
+    End If
+
+    UpdateRestartButtonState
 
 End Sub
 
 '====================================================
-' UI DEBUG
+' UPDATE RESTART BUTTON
 '====================================================
 
-Public Sub DebugPrintHUDState()
+Public Sub UpdateRestartButtonState()
 
-    Debug.Print _
-        "===== HUD STATE ====="
+    If RestartButtonShape Is Nothing Then
+        Exit Sub
+    End If
 
-    Debug.Print _
-        "Remaining Flags: " & _
-        RemainingFlags
+    If GameWon Then
 
-    Debug.Print _
-        "Elapsed Seconds: " & _
-        CurrentElapsedSeconds
+        RestartButtonShape.TextFrame2.TextRange.Text = ":D"
 
-    Debug.Print _
-        "HUD Initialized: " & _
-        HudInitialized
+    ElseIf GameOver Then
+
+        RestartButtonShape.TextFrame2.TextRange.Text = "X("
+
+    Else
+
+        RestartButtonShape.TextFrame2.TextRange.Text = ":)"
+
+    End If
+
+End Sub
+
+'====================================================
+' CLEAR HUD
+'====================================================
+
+Public Sub ClearHUD()
+
+    SafeDeleteShape "hud_background"
+
+    SafeDeleteShape "restart_button"
+
+    SafeDeleteShape "hud_mines"
+
+    SafeDeleteShape "hud_timer"
+
+    SafeDeleteShape "flag_mode_button"
+
+    ClearDifficultyButtons
+
+    HudInitialized = False
+
+    Set RestartButtonShape = Nothing
+
+    Set HudMineLabel = Nothing
+
+    Set HudTimerLabel = Nothing
+
+End Sub
+
+'====================================================
+' REALIGN HUD
+'====================================================
+
+Public Sub RealignHUD()
+
+    PositionRestartButton
+
+    PositionLabels
+
+End Sub
+
+'====================================================
+' POSITION LABELS
+'====================================================
+
+Private Sub PositionLabels()
+
+    If Not HudMineLabel Is Nothing Then
+
+        HudMineLabel.Left = _
+            GetBoardLeft() + 8
+
+        HudMineLabel.Top = _
+            GetHudTop() + 8
+
+    End If
+
+    If Not HudTimerLabel Is Nothing Then
+
+        HudTimerLabel.Left = _
+            GetBoardLeft() + _
+            GetBoardWidth() - 90
+
+        HudTimerLabel.Top = _
+            GetHudTop() + 8
+
+    End If
+
+End Sub
+
+'====================================================
+' POSITION RESTART BUTTON
+'====================================================
+
+Private Sub PositionRestartButton()
+
+    If RestartButtonShape Is Nothing Then
+        Exit Sub
+    End If
+
+    RestartButtonShape.Left = _
+        GetRestartButtonLeft()
+
+    RestartButtonShape.Top = _
+        GetRestartButtonTop()
+
+End Sub
+
+'====================================================
+' CREATE DIFFICULTY BUTTONS
+'====================================================
+
+Public Sub CreateDifficultyButtons()
+
+    CreateDifficultyButton _
+        "difficulty_easy", _
+        "Easy", _
+        1
+
+    CreateDifficultyButton _
+        "difficulty_medium", _
+        "Medium", _
+        2
+
+    CreateDifficultyButton _
+        "difficulty_hard", _
+        "Hard", _
+        3
+
+End Sub
+
+'====================================================
+' CREATE SINGLE DIFFICULTY BUTTON
+'====================================================
+
+Private Sub CreateDifficultyButton( _
+    ByVal ShapeName As String, _
+    ByVal Caption As String, _
+    ByVal Index As Long _
+)
+
+    Dim Btn As Shape
+
+    Dim LeftPos As Double
+    Dim TopPos As Double
+
+    LeftPos = _
+    GetBoardLeft() + _
+    (GetBoardWidth() / 2) - 110 + _
+    ((Index - 1) * 75)
+
+    TopPos = _
+        GetHudTop() - 34
+
+    SafeDeleteShape ShapeName
+
+    Set Btn = _
+        GameSheet.Shapes.AddShape( _
+            msoShapeRoundedRectangle, _
+            LeftPos, _
+            TopPos, _
+            60, _
+            22 _
+        )
+
+    Btn.Name = ShapeName
+
+    Btn.TextFrame2.TextRange.Text = Caption
+
+    Btn.Fill.ForeColor.RGB = _
+        RGB(220, 220, 220)
+
+    Btn.Line.ForeColor.RGB = _
+        RGB(90, 90, 90)
+
+    Btn.OnAction = _
+        "'" & ThisWorkbook.Name & "'!Set" & Caption & "AndRestart"
+
+End Sub
+Public Sub UpdateFlagModeButton()
+
+    If FlagButtonShape Is Nothing Then
+        Exit Sub
+    End If
+
+    If FlagModeEnabled Then
+
+        FlagButtonShape.TextFrame2.TextRange.Text = _
+            "FLAG: ON"
+
+        FlagButtonShape.Fill.ForeColor.RGB = _
+            RGB(255, 220, 120)
+
+    Else
+
+        FlagButtonShape.TextFrame2.TextRange.Text = _
+            "FLAG: OFF"
+
+        FlagButtonShape.Fill.ForeColor.RGB = _
+            RGB(220, 220, 220)
+
+    End If
+
+End Sub
+'====================================================
+' CLEAR DIFFICULTY BUTTONS
+'====================================================
+
+Public Sub ClearDifficultyButtons()
+
+    SafeDeleteShape "difficulty_easy"
+
+    SafeDeleteShape "difficulty_medium"
+
+    SafeDeleteShape "difficulty_hard"
+
+End Sub
+
+'====================================================
+' DIFFICULTY ACTIONS
+'====================================================
+
+Public Sub SetEasyAndRestart()
+
+    SetEasyDifficulty
+
+    StartNewGame
+
+End Sub
+
+Public Sub SetMediumAndRestart()
+
+    SetMediumDifficulty
+
+    StartNewGame
+
+End Sub
+
+Public Sub SetHardAndRestart()
+
+    SetHardDifficulty
+
+    StartNewGame
+
+End Sub
+
+'====================================================
+' HELPERS
+'====================================================
+
+Private Function GetBoardLeft() As Double
+
+    GetBoardLeft = _
+        GameSheet.Cells( _
+            BoardOriginRow, _
+            BoardOriginCol _
+        ).Left
+
+End Function
+
+Private Function GetBoardTop() As Double
+
+    GetBoardTop = _
+        GameSheet.Cells( _
+            BoardOriginRow, _
+            BoardOriginCol _
+        ).Top
+
+End Function
+
+Private Function GetBoardWidth() As Double
+
+    GetBoardWidth = _
+        BoardCols * TileSize
+
+End Function
+
+Private Function GetHudTop() As Double
+
+    GetHudTop = _
+        GetBoardTop() - _
+        HUD_PANEL_HEIGHT - 8
+
+End Function
+
+Private Function GetRestartButtonLeft() As Double
+
+    GetRestartButtonLeft = _
+        GetBoardLeft() + _
+        (GetBoardWidth() / 2) - _
+        (RESET_BUTTON_SIZE / 2)
+
+End Function
+
+Private Function GetRestartButtonTop() As Double
+
+    GetRestartButtonTop = _
+        GetHudTop() + 4
+
+End Function
+Public Sub ToggleFlagMode()
+
+    FlagModeEnabled = _
+        Not FlagModeEnabled
+
+    UpdateFlagModeButton
 
 End Sub

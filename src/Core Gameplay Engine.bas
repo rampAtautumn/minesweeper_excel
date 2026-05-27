@@ -18,13 +18,21 @@ Public Sub BootGame()
 
     InitializeGlobals
 
+    '================================================
+    ' DEFAULT DIFFICULTY
+    '================================================
+
     If CurrentDifficulty = 0 Then
 
-        ConfigureEasyMode
+        SetEasyDifficulty
 
     End If
 
-    AllocateBoardMemory
+    '================================================
+    ' MEMORY
+    '================================================
+
+    ReallocateGameMemory
 
     ResetBoardArrays
 
@@ -57,7 +65,7 @@ Public Sub BootGame()
     ApplyClassicWindowStyle
 
     '================================================
-    ' GAME INITIALIZATION
+    ' GAME STATE
     '================================================
 
     InitializeBoard
@@ -80,6 +88,20 @@ Public Sub BootGame()
     CreateBoardVisuals
 
     InitializeHUD
+
+    CreateDifficultyButtons
+
+    MarkEntireBoardDirty
+
+    RenderBoard
+
+    RefreshHUD
+
+    '================================================
+    ' FORCE COMPLETE REDRAW
+    '================================================
+
+    MarkEntireBoardDirty
 
     RenderBoard
 
@@ -193,37 +215,106 @@ Public Sub StartNewGame()
 End Sub
 
 '====================================================
-' RESET GAME
+' FULL GAME RESET
 '====================================================
 
 Public Sub ResetGame()
 
+    On Error GoTo ErrorHandler
+
     Application.ScreenUpdating = False
+
+    '================================================
+    ' STOP ACTIVE SYSTEMS
+    '================================================
 
     StopGameTimer
 
     ClearHoverEffect
 
+    '================================================
+    ' CLEAR VISUALS
+    '================================================
+
     ClearBoardSprites
 
     ClearHUD
 
-    ResetBoardArrays
+    ClearDifficultyButtons
+
+    '================================================
+    ' RESET GAME STATE
+    '================================================
+
+    GameStarted = False
+
+    GameOver = False
+
+    GameWon = False
 
     RemainingFlags = MineCount
 
     CurrentElapsedSeconds = 0
 
-    GameStarted = False
-    GameOver = False
-    GameWon = False
-
     ExplodedRow = -1
     ExplodedCol = -1
 
+    '================================================
+    ' RESET MEMORY
+    '================================================
+
+    ReallocateGameMemory
+
+    ResetBoardArrays
+
+    '================================================
+    ' REBUILD BOARD
+    '================================================
+
+    InitializeBoard
+
+    '================================================
+    ' RECALCULATE LAYOUT
+    '================================================
+
+    SetupWorkspace
+
+    ConfigureBoardLayout
+
+    '================================================
+    ' REBUILD VISUALS
+    '================================================
+
+    CreateBoardFrame
+
+    CreateBoardVisuals
+
+    InitializeHUD
+
+    CreateDifficultyButtons
+
+    '================================================
+    ' FORCE FULL REDRAW
+    '================================================
+
     MarkEntireBoardDirty
 
+    RenderBoard
+
+    RefreshHUD
+
     Application.ScreenUpdating = True
+
+    Exit Sub
+
+ErrorHandler:
+
+    Application.ScreenUpdating = True
+
+    MsgBox _
+        "ResetGame Error:" & vbCrLf & _
+        Err.Description, _
+        vbCritical
 
 End Sub
 
@@ -359,14 +450,10 @@ Public Sub TimerTick()
         Exit Sub
     End If
 
-    CurrentElapsedSeconds = _
-        DateDiff( _
-            "s", _
-            GameStartTime, _
-            Now _
-        )
+   CurrentElapsedSeconds = _
+    DateDiff("s", GameStartTime, Now)
 
-    UpdateTimerHUD
+    RefreshHUD
 
     ScheduleNextTimerTick
 
@@ -411,16 +498,15 @@ Public Sub ShutdownGame()
 
     ClearHUD
 
+    ClearDifficultyButtons
+
     GameSheet.ScrollArea = vbNullString
 
     ActiveWindow.DisplayGridlines = True
-
     ActiveWindow.DisplayHeadings = True
-
     ActiveWindow.DisplayWorkbookTabs = True
 
     Application.DisplayFormulaBar = True
-
     Application.DisplayStatusBar = True
 
     GameStarted = False

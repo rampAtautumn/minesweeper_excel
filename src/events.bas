@@ -5,7 +5,6 @@ Option Explicit
 '====================================================
 ' INPUT ENTRY POINT
 '====================================================
-
 Public Sub HandleTileClick( _
     ByVal RowIndex As Long, _
     ByVal ColIndex As Long _
@@ -19,12 +18,29 @@ Public Sub HandleTileClick( _
         Exit Sub
     End If
 
-    RevealTile RowIndex, ColIndex
+    '============================================
+    ' FLAG MODE
+    '============================================
+
+    If FlagModeEnabled Then
+
+        ToggleFlag _
+            RowIndex, _
+            ColIndex
+
+    Else
+
+        RevealTile _
+            RowIndex, _
+            ColIndex
+
+    End If
 
     RefreshBoard
 
-End Sub
+    RefreshHUD
 
+End Sub
 '====================================================
 ' RIGHT CLICK ENTRY
 '====================================================

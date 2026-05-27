@@ -30,6 +30,27 @@ Public Sub SetupWorkspace()
 
 End Sub
 
+Public Sub CenterViewportOnGame()
+
+    Dim TargetRow As Long
+    Dim TargetCol As Long
+
+    TargetRow = BoardOriginRow - 3
+
+    TargetCol = BoardOriginCol - 2
+
+    If TargetRow < 1 Then TargetRow = 1
+    If TargetCol < 1 Then TargetCol = 1
+
+    Application.Goto _
+        GameSheet.Cells(TargetRow, TargetCol), _
+        True
+
+    ActiveWindow.ScrollRow = TargetRow
+    ActiveWindow.ScrollColumn = TargetCol
+
+End Sub
+
 '====================================================
 ' WORKSHEET CLEANUP
 '====================================================

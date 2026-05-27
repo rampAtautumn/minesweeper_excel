@@ -126,41 +126,86 @@ End Sub
 '====================================================
 
 Public Sub ToggleFlag( _
-    ByVal RowIndex As Long, _
-    ByVal ColIndex As Long _
+    ByVal r As Long, _
+    ByVal c As Long _
 )
+
+    '============================================
+    ' GAME STATE VALIDATION
+    '============================================
 
     If GameOver Then
         Exit Sub
     End If
 
-    If Not IsWithinBounds(RowIndex, ColIndex) Then
+    If GameWon Then
         Exit Sub
     End If
 
-    If revelado(RowIndex, ColIndex) Then
+    If Not IsWithinBounds(r, c) Then
         Exit Sub
     End If
 
-    bandera(RowIndex, ColIndex) = _
-        Not bandera(RowIndex, ColIndex)
+    If revelado(r, c) Then
+        Exit Sub
+    End If
 
-    If bandera(RowIndex, ColIndex) Then
+    '============================================
+    ' TOGGLE FLAG
+    '============================================
 
-        RemainingFlags = RemainingFlags - 1
+    bandera(r, c) = _
+        Not bandera(r, c)
+
+    '============================================
+    ' UPDATE FLAG COUNTER
+    '============================================
+
+    If bandera(r, c) Then
+
+        RemainingFlags = _
+            RemainingFlags - 1
 
     Else
 
-        RemainingFlags = RemainingFlags + 1
+        RemainingFlags = _
+            RemainingFlags + 1
 
     End If
 
-    MarkTileDirty RowIndex, ColIndex
+    '============================================
+    ' CLAMP COUNTER
+    '============================================
+
+    If RemainingFlags < 0 Then
+        RemainingFlags = 0
+    End If
+
+    If RemainingFlags > MineCount Then
+        RemainingFlags = MineCount
+    End If
+
+    '============================================
+    ' INVALIDATE TILE
+    '============================================
+
+    DirtyTiles(r, c) = True
+
+    '============================================
+    ' RENDER TILE
+    '============================================
+
+    RenderTile r, c
+
+    '============================================
+    ' UPDATE HUD
+    '============================================
 
     UpdateMineCounterHUD
 
-End Sub
+    RefreshHUD
 
+End Sub
 '====================================================
 ' DOUBLE CLICK REVEAL
 '====================================================

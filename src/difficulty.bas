@@ -152,6 +152,40 @@ End Sub
 
 Public Sub RestartCurrentDifficulty()
 
+    On Error GoTo ErrorHandler
+
+    Application.ScreenUpdating = False
+
+    '================================================
+    ' TIMER
+    '================================================
+
+    StopGameTimer
+
+    '================================================
+    ' UX CLEANUP
+    '================================================
+
+    ClearHoverEffect
+
+    '================================================
+    ' VISUAL CLEANUP
+    '================================================
+
+    ClearBoardSprites
+
+    ClearHUD
+
+    '================================================
+    ' RESET ARRAYS
+    '================================================
+
+    ResetBoardArrays
+
+    '================================================
+    ' REAPPLY DIFFICULTY
+    '================================================
+
     Select Case CurrentDifficulty
 
         Case DifficultyEasy
@@ -168,11 +202,83 @@ Public Sub RestartCurrentDifficulty()
 
         Case Else
 
-            Exit Sub
+            SetEasyDifficulty
 
     End Select
 
-    RestartEngine
+    '================================================
+    ' REALLOCATE MEMORY
+    '================================================
+
+    AllocateBoardMemory
+
+    ResetBoardArrays
+
+    '================================================
+    ' REBUILD GAME
+    '================================================
+
+    InitializeBoard
+
+    SetupWorkspace
+
+    ConfigureBoardLayout
+
+    ApplyClassicWindowStyle
+
+    '================================================
+    ' REBUILD VISUALS
+    '================================================
+
+    CreateBoardVisuals
+
+    InitializeHUD
+
+    '================================================
+    ' FORCE FULL RENDER INVALIDATION
+    '================================================
+
+    MarkEntireBoardDirty
+
+    RenderBoard
+
+    RefreshHUD
+
+    '================================================
+    ' RESET GAME STATE
+    '================================================
+
+    GameStarted = False
+    GameOver = False
+    GameWon = False
+
+    ExplodedRow = -1
+    ExplodedCol = -1
+
+    CurrentElapsedSeconds = 0
+
+    RemainingFlags = MineCount
+
+    '================================================
+    ' TIMER
+    '================================================
+
+    StartGameTimer
+
+Cleanup:
+
+    Application.ScreenUpdating = True
+
+    Exit Sub
+
+ErrorHandler:
+
+    Application.ScreenUpdating = True
+
+    MsgBox _
+        "RestartCurrentDifficulty Error:" & vbCrLf & _
+        Err.Description, _
+        vbCritical
 
 End Sub
 
@@ -234,3 +340,5 @@ Public Sub DebugPrintDifficulty()
         MineCount
 
 End Sub
+
+

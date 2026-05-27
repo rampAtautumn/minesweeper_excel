@@ -126,24 +126,7 @@ Private Sub RegisterGameplaySprites()
     RegisterSprite _
         "8", _
         "8.jpeg"
-
-End Sub
-
-'====================================================
-' HUD SPRITES
-'====================================================
-
-Private Sub RegisterHudSprites()
-
-    Dim i As Long
-
-    For i = 0 To 9
-
-        RegisterSprite _
-            "score_" & i, _
-            "score_" & i & ".jpeg"
-
-    Next i
+    RegisterSprite "background", "background.jpeg"
 
 End Sub
 

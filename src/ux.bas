@@ -3,260 +3,450 @@ Attribute VB_Name = "mod_ux"
 Option Explicit
 
 '====================================================
-' HOVER STATE
+' ASSET ROOTS
 '====================================================
 
-Private HoverShapeName As String
+Public Function GetProjectRoot() As String
+
+    GetProjectRoot = ThisWorkbook.Path
+
+End Function
+
+Public Function GetAssetsRoot() As String
+
+    GetAssetsRoot = _
+        GetProjectRoot() & _
+        "\assets\sprites\"
+
+End Function
 
 '====================================================
-' CLEAR HOVER
+' ASSET LOADER
 '====================================================
 
-Public Sub ClearHoverEffect()
+Public Sub LoadAssets()
 
-    On Error Resume Next
+    On Error GoTo ErrorHandler
 
-    If Len(HoverShapeName) > 0 Then
+    AssetsRoot = GetAssetsRoot()
 
-        GameSheet.Shapes(HoverShapeName).Line.Visible = msoFalse
+    If Len(Dir$(AssetsRoot, vbDirectory)) = 0 Then
+
+        Err.Raise _
+            vbObjectError + 1000, _
+            "LoadAssets", _
+            "Assets directory not found:" & vbCrLf & _
+            AssetsRoot
 
     End If
 
-    HoveredRow = -1
-    HoveredCol = -1
+    Set SpritePaths = _
+        CreateObject("Scripting.Dictionary")
 
-    HoverShapeName = vbNullString
+    RegisterGameplaySprites
 
-    On Error GoTo 0
+
+    If Not VerifyAssets() Then
+
+        Err.Raise _
+            vbObjectError + 1001, _
+            "LoadAssets", _
+            "Asset verification failed."
+
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+
+    MsgBox _
+        "Asset loading failed:" & vbCrLf & _
+        Err.Description, _
+        vbCritical
+
+    StopGameTimer
 
 End Sub
 
 '====================================================
-' APPLY HOVER EFFECT
+' GAMEPLAY SPRITES
 '====================================================
 
-Public Sub ApplyHoverEffect( _
-    ByVal RowIndex As Long, _
-    ByVal ColIndex As Long _
+Private Sub RegisterGameplaySprites()
+
+    RegisterSprite _
+        "hidden", _
+        "block.jpeg"
+
+    RegisterSprite _
+        "flag", _
+        "flag.jpeg"
+
+    RegisterSprite _
+        "mine", _
+        "mine.jpeg"
+
+    RegisterSprite _
+        "active_mine", _
+        "active_mine.jpeg"
+
+    RegisterSprite _
+        "0", _
+        "null.jpeg"
+
+    RegisterSprite _
+        "1", _
+        "1.jpeg"
+
+    RegisterSprite _
+        "2", _
+        "2.jpeg"
+
+    RegisterSprite _
+        "3", _
+        "3.jpeg"
+
+    RegisterSprite _
+        "4", _
+        "4.jpeg"
+
+    RegisterSprite _
+        "5", _
+        "5.jpeg"
+
+    RegisterSprite _
+        "6", _
+        "6.jpeg"
+
+    RegisterSprite _
+        "7", _
+        "7.jpeg"
+
+    RegisterSprite _
+        "8", _
+        "8.jpeg"
+    RegisterSprite "background", "background.jpeg"
+
+End Sub
+
+'====================================================
+' SPRITE REGISTRATION
+'====================================================
+
+Private Sub RegisterSprite( _
+    ByVal SpriteKey As String, _
+    ByVal FileName As String _
 )
 
-    Dim TileShape As Shape
+    Dim FullPath As String
 
-    If GameOver Then
-        Exit Sub
+    FullPath = AssetsRoot & FileName
+
+    If SpritePaths.Exists(SpriteKey) Then
+
+        Err.Raise _
+            vbObjectError + 1002, _
+            "RegisterSprite", _
+            "Duplicate sprite key detected: " & _
+            SpriteKey
+
     End If
 
-    If Not IsWithinBounds(RowIndex, ColIndex) Then
-        Exit Sub
-    End If
-
-    ClearHoverEffect
-
-    If TileShapes(RowIndex, ColIndex) Is Nothing Then
-        Exit Sub
-    End If
-
-    Set TileShape = TileShapes(RowIndex, ColIndex)
-
-    With TileShape.Line
-
-        .Visible = msoTrue
-
-        .Weight = 1.5
-
-        .ForeColor.RGB = RGB(255, 255, 255)
-
-    End With
-
-    HoveredRow = RowIndex
-    HoveredCol = ColIndex
-
-    HoverShapeName = TileShape.Name
+    SpritePaths.Add _
+        SpriteKey, _
+        FullPath
 
 End Sub
 
 '====================================================
-' PRESSED TILE EFFECT
+' SPRITE LOOKUP
 '====================================================
 
-Public Sub ApplyPressedTileEffect( _
+Public Function GetSpritePath( _
+    ByVal SpriteKey As String _
+) As String
+
+    If SpritePaths Is Nothing Then
+
+        Err.Raise _
+            vbObjectError + 1003, _
+            "GetSpritePath", _
+            "Sprite registry not initialized."
+
+    End If
+
+    If Not SpritePaths.Exists(SpriteKey) Then
+
+        Err.Raise _
+            vbObjectError + 1004, _
+            "GetSpritePath", _
+            "Sprite key not found: " & _
+            SpriteKey
+
+    End If
+
+    GetSpritePath = _
+        CStr(SpritePaths(SpriteKey))
+
+End Function
+
+'====================================================
+' ASSET VERIFICATION
+'====================================================
+
+Public Function VerifyAssets() As Boolean
+
+    Dim SpriteKey As Variant
+    Dim AssetPath As String
+
+    VerifyAssets = False
+
+    If SpritePaths Is Nothing Then
+        Exit Function
+    End If
+
+    If SpritePaths.Count = 0 Then
+        Exit Function
+    End If
+
+    For Each SpriteKey In SpritePaths.Keys
+
+        AssetPath = _
+            CStr(SpritePaths(SpriteKey))
+
+        If Not FileExists(AssetPath) Then
+
+            MsgBox _
+                "Missing asset file:" & vbCrLf & _
+                AssetPath, _
+                vbCritical
+
+            Exit Function
+
+        End If
+
+        If Not IsValidImageExtension(AssetPath) Then
+
+            MsgBox _
+                "Invalid asset extension:" & vbCrLf & _
+                AssetPath, _
+                vbCritical
+
+            Exit Function
+
+        End If
+
+    Next SpriteKey
+
+    VerifyAssets = True
+
+End Function
+
+'====================================================
+' FILE VALIDATION
+'====================================================
+
+Private Function FileExists( _
+    ByVal FilePath As String _
+) As Boolean
+
+    On Error Resume Next
+
+    FileExists = _
+        (Len(Dir$(FilePath)) > 0)
+
+    On Error GoTo 0
+
+End Function
+
+Private Function IsValidImageExtension( _
+    ByVal FilePath As String _
+) As Boolean
+
+    Dim Extension As String
+
+    Extension = _
+        LCase$(Mid$( _
+            FilePath, _
+            InStrRev(FilePath, ".") + 1 _
+        ))
+
+    Select Case Extension
+
+        Case "jpg", "jpeg", "png"
+
+            IsValidImageExtension = True
+
+        Case Else
+
+            IsValidImageExtension = False
+
+    End Select
+
+End Function
+
+'====================================================
+' TILE SPRITE RESOLUTION
+'====================================================
+
+Public Function ResolveTileSprite( _
     ByVal RowIndex As Long, _
     ByVal ColIndex As Long _
-)
+) As String
 
     If Not IsWithinBounds(RowIndex, ColIndex) Then
-        Exit Sub
+
+        ResolveTileSprite = "hidden"
+
+        Exit Function
+
     End If
 
-    If TileShapes(RowIndex, ColIndex) Is Nothing Then
-        Exit Sub
+    '------------------------------
+    ' Flagged tile
+    '------------------------------
+
+    If bandera(RowIndex, ColIndex) Then
+
+        ResolveTileSprite = "flag"
+
+        Exit Function
+
     End If
 
-    With TileShapes(RowIndex, ColIndex)
+    '------------------------------
+    ' Hidden tile
+    '------------------------------
 
-        .IncrementLeft 1
-        .IncrementTop 1
+    If Not revelado(RowIndex, ColIndex) Then
 
-    End With
+        ResolveTileSprite = "hidden"
 
-End Sub
+        Exit Function
 
-'====================================================
-' RELEASE TILE EFFECT
-'====================================================
-
-Public Sub ReleasePressedTileEffect( _
-    ByVal RowIndex As Long, _
-    ByVal ColIndex As Long _
-)
-
-    If Not IsWithinBounds(RowIndex, ColIndex) Then
-        Exit Sub
     End If
 
-    If TileShapes(RowIndex, ColIndex) Is Nothing Then
-        Exit Sub
+    '------------------------------
+    ' Mine tile
+    '------------------------------
+
+    If tablero(RowIndex, ColIndex) = -1 Then
+
+        If RowIndex = ExplodedRow And _
+           ColIndex = ExplodedCol Then
+
+            ResolveTileSprite = _
+                "active_mine"
+
+        Else
+
+            ResolveTileSprite = _
+                "mine"
+
+        End If
+
+        Exit Function
+
     End If
 
-    With TileShapes(RowIndex, ColIndex)
+    '------------------------------
+    ' Number / empty tile
+    '------------------------------
 
-        .IncrementLeft -1
-        .IncrementTop -1
+    ResolveTileSprite = _
+        CStr(tablero(RowIndex, ColIndex))
 
-    End With
+End Function
+
+'====================================================
+' HUD DIGIT HELPERS
+'====================================================
+
+Public Function GetHudDigitSprite( _
+    ByVal DigitValue As Long _
+) As String
+
+    If DigitValue < 0 Then
+        DigitValue = 0
+    End If
+
+    If DigitValue > 9 Then
+        DigitValue = 9
+    End If
+
+    GetHudDigitSprite = _
+        "score_" & DigitValue
+
+End Function
+
+'====================================================
+' REGISTRY UTILITIES
+'====================================================
+
+Public Function AssetRegistryInitialized() As Boolean
+
+    AssetRegistryInitialized = _
+        Not SpritePaths Is Nothing
+
+End Function
+
+Public Function AssetCount() As Long
+
+    If SpritePaths Is Nothing Then
+
+        AssetCount = 0
+
+        Exit Function
+
+    End If
+
+    AssetCount = SpritePaths.Count
+
+End Function
+
+'====================================================
+' DEBUG UTILITIES
+'====================================================
+
+Public Sub DebugPrintAssetRegistry()
+
+    Dim SpriteKey As Variant
+
+    If SpritePaths Is Nothing Then
+
+        Debug.Print _
+            "Sprite registry not initialized."
+
+        Exit Sub
+
+    End If
+
+    Debug.Print _
+        "===== ASSET REGISTRY ====="
+
+    For Each SpriteKey In SpritePaths.Keys
+
+        Debug.Print _
+            SpriteKey & _
+            " => " & _
+            SpritePaths(SpriteKey)
+
+    Next SpriteKey
 
 End Sub
 
-'====================================================
-' LOSS EFFECT
-'====================================================
+Public Sub DebugValidateAssets()
 
-Public Sub PlayLossEffect()
+    If VerifyAssets() Then
 
-    Dim r As Long
-    Dim c As Long
+        Debug.Print _
+            "All assets validated successfully."
 
-    For r = 1 To BoardRows
+    Else
 
-        For c = 1 To BoardCols
+        Debug.Print _
+            "Asset validation failed."
 
-            If tablero(r, c) = -1 Then
-
-                DirtyTiles(r, c) = True
-
-            End If
-
-        Next c
-
-    Next r
-
-End Sub
-
-'====================================================
-' VICTORY EFFECT
-'====================================================
-
-Public Sub PlayVictoryEffect()
-
-    Dim r As Long
-    Dim c As Long
-
-    For r = 1 To BoardRows
-
-        For c = 1 To BoardCols
-
-            If tablero(r, c) = -1 Then
-
-                bandera(r, c) = True
-
-                DirtyTiles(r, c) = True
-
-            End If
-
-        Next c
-
-    Next r
-
-    RefreshBoard
-
-End Sub
-
-'====================================================
-' RESTART BUTTON HOVER
-'====================================================
-
-Public Sub ApplyRestartHover()
-
-    On Error Resume Next
-
-    With GameSheet.Shapes("restart_button")
-
-        .Line.Visible = msoTrue
-
-        .Line.ForeColor.RGB = RGB(255, 255, 255)
-
-        .Line.Weight = 2
-
-    End With
-
-    On Error GoTo 0
-
-End Sub
-
-'====================================================
-' CLEAR RESTART HOVER
-'====================================================
-
-Public Sub ClearRestartHover()
-
-    On Error Resume Next
-
-    With GameSheet.Shapes("restart_button")
-
-        .Line.Visible = msoFalse
-
-    End With
-
-    On Error GoTo 0
-
-End Sub
-
-'====================================================
-' RESTART PRESSED EFFECT
-'====================================================
-
-Public Sub ApplyRestartPressedEffect()
-
-    On Error Resume Next
-
-    With GameSheet.Shapes("restart_button")
-
-        .IncrementLeft 1
-
-        .IncrementTop 1
-
-    End With
-
-    On Error GoTo 0
-
-End Sub
-
-'====================================================
-' RESTART RELEASE EFFECT
-'====================================================
-
-Public Sub ReleaseRestartPressedEffect()
-
-    On Error Resume Next
-
-    With GameSheet.Shapes("restart_button")
-
-        .IncrementLeft -1
-
-        .IncrementTop -1
-
-    End With
-
-    On Error GoTo 0
+    End If
 
 End Sub

@@ -3,342 +3,450 @@ Attribute VB_Name = "mod_difficulty"
 Option Explicit
 
 '====================================================
-' DIFFICULTY ENUMERATION
+' ASSET ROOTS
 '====================================================
 
-Public Enum GameDifficulty
+Public Function GetProjectRoot() As String
 
-    DifficultyEasy = 1
-    DifficultyMedium = 2
-    DifficultyHard = 3
-    DifficultyCustom = 4
+    GetProjectRoot = ThisWorkbook.Path
 
-End Enum
+End Function
 
-'====================================================
-' CURRENT DIFFICULTY
-'====================================================
+Public Function GetAssetsRoot() As String
 
-Public CurrentDifficulty As GameDifficulty
+    GetAssetsRoot = _
+        GetProjectRoot() & _
+        "\assets\sprites\"
 
-'====================================================
-' APPLY EASY
-'====================================================
-
-Public Sub SetEasyDifficulty()
-
-    CurrentDifficulty = DifficultyEasy
-
-    BoardRows = 8
-    BoardCols = 8
-
-    MineCount = 10
-
-    RemainingFlags = MineCount
-
-End Sub
+End Function
 
 '====================================================
-' APPLY MEDIUM
+' ASSET LOADER
 '====================================================
 
-Public Sub SetMediumDifficulty()
-
-    CurrentDifficulty = DifficultyMedium
-
-    BoardRows = 16
-    BoardCols = 16
-
-    MineCount = 40
-
-    RemainingFlags = MineCount
-
-End Sub
-
-'====================================================
-' APPLY HARD
-'====================================================
-
-Public Sub SetHardDifficulty()
-
-    CurrentDifficulty = DifficultyHard
-
-    BoardRows = 16
-    BoardCols = 30
-
-    MineCount = 99
-
-    RemainingFlags = MineCount
-
-End Sub
-
-'====================================================
-' CUSTOM DIFFICULTY
-'====================================================
-
-Public Sub SetCustomDifficulty( _
-    ByVal RowsCount As Long, _
-    ByVal ColsCount As Long, _
-    ByVal MinesAmount As Long _
-)
-
-    ValidateCustomDifficulty _
-        RowsCount, _
-        ColsCount, _
-        MinesAmount
-
-    CurrentDifficulty = DifficultyCustom
-
-    BoardRows = RowsCount
-    BoardCols = ColsCount
-
-    MineCount = MinesAmount
-
-    RemainingFlags = MineCount
-
-End Sub
-
-'====================================================
-' VALIDATION
-'====================================================
-
-Private Sub ValidateCustomDifficulty( _
-    ByVal RowsCount As Long, _
-    ByVal ColsCount As Long, _
-    ByVal MinesAmount As Long _
-)
-
-    If RowsCount < 2 Then
-
-        Err.Raise _
-            vbObjectError + 4000, _
-            "SetCustomDifficulty", _
-            "Rows must be at least 2."
-
-    End If
-
-    If ColsCount < 2 Then
-
-        Err.Raise _
-            vbObjectError + 4001, _
-            "SetCustomDifficulty", _
-            "Columns must be at least 2."
-
-    End If
-
-    If MinesAmount <= 0 Then
-
-        Err.Raise _
-            vbObjectError + 4002, _
-            "SetCustomDifficulty", _
-            "Mine count must be greater than zero."
-
-    End If
-
-    If MinesAmount >= (RowsCount * ColsCount) Then
-
-        Err.Raise _
-            vbObjectError + 4003, _
-            "SetCustomDifficulty", _
-            "Mine count exceeds board capacity."
-
-    End If
-
-End Sub
-
-'====================================================
-' RESTART WITH DIFFICULTY
-'====================================================
-
-Public Sub RestartCurrentDifficulty()
+Public Sub LoadAssets()
 
     On Error GoTo ErrorHandler
 
-    Application.ScreenUpdating = False
+    AssetsRoot = GetAssetsRoot()
 
-    '================================================
-    ' TIMER
-    '================================================
+    If Len(Dir$(AssetsRoot, vbDirectory)) = 0 Then
 
-    StopGameTimer
+        Err.Raise _
+            vbObjectError + 1000, _
+            "LoadAssets", _
+            "Assets directory not found:" & vbCrLf & _
+            AssetsRoot
 
-    '================================================
-    ' UX CLEANUP
-    '================================================
+    End If
 
-    ClearHoverEffect
+    Set SpritePaths = _
+        CreateObject("Scripting.Dictionary")
 
-    '================================================
-    ' VISUAL CLEANUP
-    '================================================
+    RegisterGameplaySprites
 
-    ClearBoardSprites
 
-    ClearHUD
+    If Not VerifyAssets() Then
 
-    '================================================
-    ' RESET ARRAYS
-    '================================================
+        Err.Raise _
+            vbObjectError + 1001, _
+            "LoadAssets", _
+            "Asset verification failed."
 
-    ResetBoardArrays
-
-    '================================================
-    ' REAPPLY DIFFICULTY
-    '================================================
-
-    Select Case CurrentDifficulty
-
-        Case DifficultyEasy
-
-            SetEasyDifficulty
-
-        Case DifficultyMedium
-
-            SetMediumDifficulty
-
-        Case DifficultyHard
-
-            SetHardDifficulty
-
-        Case Else
-
-            SetEasyDifficulty
-
-    End Select
-
-    '================================================
-    ' REALLOCATE MEMORY
-    '================================================
-
-    AllocateBoardMemory
-
-    ResetBoardArrays
-
-    '================================================
-    ' REBUILD GAME
-    '================================================
-
-    InitializeBoard
-
-    SetupWorkspace
-
-    ConfigureBoardLayout
-
-    ApplyClassicWindowStyle
-
-    '================================================
-    ' REBUILD VISUALS
-    '================================================
-
-    CreateBoardVisuals
-
-    InitializeHUD
-
-    '================================================
-    ' FORCE FULL RENDER INVALIDATION
-    '================================================
-
-    MarkEntireBoardDirty
-
-    RenderBoard
-
-    RefreshHUD
-
-    '================================================
-    ' RESET GAME STATE
-    '================================================
-
-    GameStarted = False
-    GameOver = False
-    GameWon = False
-
-    ExplodedRow = -1
-    ExplodedCol = -1
-
-    CurrentElapsedSeconds = 0
-
-    RemainingFlags = MineCount
-
-    '================================================
-    ' TIMER
-    '================================================
-
-    StartGameTimer
-
-Cleanup:
-
-    Application.ScreenUpdating = True
+    End If
 
     Exit Sub
 
 ErrorHandler:
 
-    Application.ScreenUpdating = True
-
     MsgBox _
-        "RestartCurrentDifficulty Error:" & vbCrLf & _
+        "Asset loading failed:" & vbCrLf & _
         Err.Description, _
         vbCritical
+
+    StopGameTimer
 
 End Sub
 
 '====================================================
-' DIFFICULTY NAME
+' GAMEPLAY SPRITES
 '====================================================
 
-Public Function GetDifficultyName() As String
+Private Sub RegisterGameplaySprites()
 
-    Select Case CurrentDifficulty
+    RegisterSprite _
+        "hidden", _
+        "block.jpeg"
 
-        Case DifficultyEasy
+    RegisterSprite _
+        "flag", _
+        "flag.jpeg"
 
-            GetDifficultyName = "Easy"
+    RegisterSprite _
+        "mine", _
+        "mine.jpeg"
 
-        Case DifficultyMedium
+    RegisterSprite _
+        "active_mine", _
+        "active_mine.jpeg"
 
-            GetDifficultyName = "Medium"
+    RegisterSprite _
+        "0", _
+        "null.jpeg"
 
-        Case DifficultyHard
+    RegisterSprite _
+        "1", _
+        "1.jpeg"
 
-            GetDifficultyName = "Hard"
+    RegisterSprite _
+        "2", _
+        "2.jpeg"
 
-        Case DifficultyCustom
+    RegisterSprite _
+        "3", _
+        "3.jpeg"
 
-            GetDifficultyName = "Custom"
+    RegisterSprite _
+        "4", _
+        "4.jpeg"
+
+    RegisterSprite _
+        "5", _
+        "5.jpeg"
+
+    RegisterSprite _
+        "6", _
+        "6.jpeg"
+
+    RegisterSprite _
+        "7", _
+        "7.jpeg"
+
+    RegisterSprite _
+        "8", _
+        "8.jpeg"
+    RegisterSprite "background", "background.jpeg"
+
+End Sub
+
+'====================================================
+' SPRITE REGISTRATION
+'====================================================
+
+Private Sub RegisterSprite( _
+    ByVal SpriteKey As String, _
+    ByVal FileName As String _
+)
+
+    Dim FullPath As String
+
+    FullPath = AssetsRoot & FileName
+
+    If SpritePaths.Exists(SpriteKey) Then
+
+        Err.Raise _
+            vbObjectError + 1002, _
+            "RegisterSprite", _
+            "Duplicate sprite key detected: " & _
+            SpriteKey
+
+    End If
+
+    SpritePaths.Add _
+        SpriteKey, _
+        FullPath
+
+End Sub
+
+'====================================================
+' SPRITE LOOKUP
+'====================================================
+
+Public Function GetSpritePath( _
+    ByVal SpriteKey As String _
+) As String
+
+    If SpritePaths Is Nothing Then
+
+        Err.Raise _
+            vbObjectError + 1003, _
+            "GetSpritePath", _
+            "Sprite registry not initialized."
+
+    End If
+
+    If Not SpritePaths.Exists(SpriteKey) Then
+
+        Err.Raise _
+            vbObjectError + 1004, _
+            "GetSpritePath", _
+            "Sprite key not found: " & _
+            SpriteKey
+
+    End If
+
+    GetSpritePath = _
+        CStr(SpritePaths(SpriteKey))
+
+End Function
+
+'====================================================
+' ASSET VERIFICATION
+'====================================================
+
+Public Function VerifyAssets() As Boolean
+
+    Dim SpriteKey As Variant
+    Dim AssetPath As String
+
+    VerifyAssets = False
+
+    If SpritePaths Is Nothing Then
+        Exit Function
+    End If
+
+    If SpritePaths.Count = 0 Then
+        Exit Function
+    End If
+
+    For Each SpriteKey In SpritePaths.Keys
+
+        AssetPath = _
+            CStr(SpritePaths(SpriteKey))
+
+        If Not FileExists(AssetPath) Then
+
+            MsgBox _
+                "Missing asset file:" & vbCrLf & _
+                AssetPath, _
+                vbCritical
+
+            Exit Function
+
+        End If
+
+        If Not IsValidImageExtension(AssetPath) Then
+
+            MsgBox _
+                "Invalid asset extension:" & vbCrLf & _
+                AssetPath, _
+                vbCritical
+
+            Exit Function
+
+        End If
+
+    Next SpriteKey
+
+    VerifyAssets = True
+
+End Function
+
+'====================================================
+' FILE VALIDATION
+'====================================================
+
+Private Function FileExists( _
+    ByVal FilePath As String _
+) As Boolean
+
+    On Error Resume Next
+
+    FileExists = _
+        (Len(Dir$(FilePath)) > 0)
+
+    On Error GoTo 0
+
+End Function
+
+Private Function IsValidImageExtension( _
+    ByVal FilePath As String _
+) As Boolean
+
+    Dim Extension As String
+
+    Extension = _
+        LCase$(Mid$( _
+            FilePath, _
+            InStrRev(FilePath, ".") + 1 _
+        ))
+
+    Select Case Extension
+
+        Case "jpg", "jpeg", "png"
+
+            IsValidImageExtension = True
 
         Case Else
 
-            GetDifficultyName = "Unknown"
+            IsValidImageExtension = False
 
     End Select
 
 End Function
 
 '====================================================
-' DIFFICULTY DEBUG
+' TILE SPRITE RESOLUTION
 '====================================================
 
-Public Sub DebugPrintDifficulty()
+Public Function ResolveTileSprite( _
+    ByVal RowIndex As Long, _
+    ByVal ColIndex As Long _
+) As String
+
+    If Not IsWithinBounds(RowIndex, ColIndex) Then
+
+        ResolveTileSprite = "hidden"
+
+        Exit Function
+
+    End If
+
+    '------------------------------
+    ' Flagged tile
+    '------------------------------
+
+    If bandera(RowIndex, ColIndex) Then
+
+        ResolveTileSprite = "flag"
+
+        Exit Function
+
+    End If
+
+    '------------------------------
+    ' Hidden tile
+    '------------------------------
+
+    If Not revelado(RowIndex, ColIndex) Then
+
+        ResolveTileSprite = "hidden"
+
+        Exit Function
+
+    End If
+
+    '------------------------------
+    ' Mine tile
+    '------------------------------
+
+    If tablero(RowIndex, ColIndex) = -1 Then
+
+        If RowIndex = ExplodedRow And _
+           ColIndex = ExplodedCol Then
+
+            ResolveTileSprite = _
+                "active_mine"
+
+        Else
+
+            ResolveTileSprite = _
+                "mine"
+
+        End If
+
+        Exit Function
+
+    End If
+
+    '------------------------------
+    ' Number / empty tile
+    '------------------------------
+
+    ResolveTileSprite = _
+        CStr(tablero(RowIndex, ColIndex))
+
+End Function
+
+'====================================================
+' HUD DIGIT HELPERS
+'====================================================
+
+Public Function GetHudDigitSprite( _
+    ByVal DigitValue As Long _
+) As String
+
+    If DigitValue < 0 Then
+        DigitValue = 0
+    End If
+
+    If DigitValue > 9 Then
+        DigitValue = 9
+    End If
+
+    GetHudDigitSprite = _
+        "score_" & DigitValue
+
+End Function
+
+'====================================================
+' REGISTRY UTILITIES
+'====================================================
+
+Public Function AssetRegistryInitialized() As Boolean
+
+    AssetRegistryInitialized = _
+        Not SpritePaths Is Nothing
+
+End Function
+
+Public Function AssetCount() As Long
+
+    If SpritePaths Is Nothing Then
+
+        AssetCount = 0
+
+        Exit Function
+
+    End If
+
+    AssetCount = SpritePaths.Count
+
+End Function
+
+'====================================================
+' DEBUG UTILITIES
+'====================================================
+
+Public Sub DebugPrintAssetRegistry()
+
+    Dim SpriteKey As Variant
+
+    If SpritePaths Is Nothing Then
+
+        Debug.Print _
+            "Sprite registry not initialized."
+
+        Exit Sub
+
+    End If
 
     Debug.Print _
-        "===== DIFFICULTY ====="
+        "===== ASSET REGISTRY ====="
 
-    Debug.Print _
-        "Mode: " & _
-        GetDifficultyName()
+    For Each SpriteKey In SpritePaths.Keys
 
-    Debug.Print _
-        "Rows: " & _
-        BoardRows
+        Debug.Print _
+            SpriteKey & _
+            " => " & _
+            SpritePaths(SpriteKey)
 
-    Debug.Print _
-        "Columns: " & _
-        BoardCols
-
-    Debug.Print _
-        "Mines: " & _
-        MineCount
+    Next SpriteKey
 
 End Sub
 
+Public Sub DebugValidateAssets()
 
+    If VerifyAssets() Then
+
+        Debug.Print _
+            "All assets validated successfully."
+
+    Else
+
+        Debug.Print _
+            "Asset validation failed."
+
+    End If
+
+End Sub

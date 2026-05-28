@@ -3,589 +3,450 @@ Attribute VB_Name = "mod_ui"
 Option Explicit
 
 '====================================================
-' HUD CONSTANTS
+' ASSET ROOTS
 '====================================================
 
-Private Const HUD_MARGIN_X As Double = 8
+Public Function GetProjectRoot() As String
 
-Private Const HUD_PANEL_HEIGHT As Double = 42
+    GetProjectRoot = ThisWorkbook.Path
 
-Private Const RESET_BUTTON_SIZE As Double = 30
+End Function
 
-'====================================================
-' HUD REFERENCES
-'====================================================
+Public Function GetAssetsRoot() As String
 
-Public RestartButtonShape As Shape
+    GetAssetsRoot = _
+        GetProjectRoot() & _
+        "\assets\sprites\"
 
-Public HudMineLabel As Shape
-Public HudTimerLabel As Shape
-
-'====================================================
-' INITIALIZE HUD
-'====================================================
-
-Public Sub InitializeHUD()
-
-    ClearHUD
-
-    CreateHudBackground
-
-    CreateMineLabel
-
-    CreateRestartButton
-
-    CreateFlagModeButton
-
-    CreateTimerLabel
-
-    HudInitialized = True
-
-    RefreshHUD
-
-End Sub
+End Function
 
 '====================================================
-' HUD BACKGROUND
+' ASSET LOADER
 '====================================================
 
-Private Sub CreateHudBackground()
+Public Sub LoadAssets()
 
-    Dim BoardLeft As Double
-    Dim BoardTop As Double
-    Dim BoardWidth As Double
+    On Error GoTo ErrorHandler
 
-    SafeDeleteShape "hud_background"
+    AssetsRoot = GetAssetsRoot()
 
-    BoardLeft = GetBoardLeft()
-    BoardTop = GetHudTop()
-    BoardWidth = GetBoardWidth()
+    If Len(Dir$(AssetsRoot, vbDirectory)) = 0 Then
 
-    With GameSheet.Shapes.AddShape( _
-        msoShapeRectangle, _
-        BoardLeft, _
-        BoardTop, _
-        BoardWidth, _
-        HUD_PANEL_HEIGHT _
-    )
-
-        .Name = "hud_background"
-
-        .Fill.ForeColor.RGB = RGB(192, 192, 192)
-
-        .Line.ForeColor.RGB = RGB(110, 110, 110)
-
-    End With
-
-End Sub
-
-'====================================================
-' CREATE MINE LABEL
-'====================================================
-
-Private Sub CreateMineLabel()
-
-    SafeDeleteShape "hud_mines"
-
-    Set HudMineLabel = _
-        GameSheet.Shapes.AddTextbox( _
-            msoTextOrientationHorizontal, _
-            GetBoardLeft() + 8, _
-            GetHudTop() + 8, _
-            90, _
-            22 _
-        )
-
-    HudMineLabel.Name = "hud_mines"
-
-    With HudMineLabel
-
-        .Fill.Visible = msoFalse
-
-        .Line.Visible = msoFalse
-
-        .TextFrame2.TextRange.Font.Size = 12
-
-        .TextFrame2.TextRange.Font.Bold = msoTrue
-
-        .TextFrame2.TextRange.Text = _
-            "Mines: " & RemainingFlags
-
-    End With
-
-End Sub
-
-'====================================================
-' CREATE TIMER LABEL
-'====================================================
-
-Private Sub CreateTimerLabel()
-
-    SafeDeleteShape "hud_timer"
-
-    Set HudTimerLabel = _
-        GameSheet.Shapes.AddTextbox( _
-            msoTextOrientationHorizontal, _
-            GetBoardLeft() + GetBoardWidth() - 90, _
-            GetHudTop() + 8, _
-            80, _
-            22 _
-        )
-
-    HudTimerLabel.Name = "hud_timer"
-
-    With HudTimerLabel
-
-        .Fill.Visible = msoFalse
-
-        .Line.Visible = msoFalse
-
-        .TextFrame2.TextRange.Font.Size = 12
-
-        .TextFrame2.TextRange.Font.Bold = msoTrue
-
-        .TextFrame2.TextRange.Text = "Time: 0"
-
-    End With
-
-End Sub
-
-'====================================================
-' CREATE RESTART BUTTON
-'====================================================
-
-Public Sub CreateRestartButton()
-
-    Dim BtnLeft As Double
-    Dim BtnTop As Double
-
-    SafeDeleteShape "restart_button"
-
-    BtnLeft = GetRestartButtonLeft()
-    BtnTop = GetRestartButtonTop()
-
-    Set RestartButtonShape = _
-        GameSheet.Shapes.AddShape( _
-            msoShapeRoundedRectangle, _
-            BtnLeft, _
-            BtnTop, _
-            RESET_BUTTON_SIZE, _
-            RESET_BUTTON_SIZE _
-        )
-
-    RestartButtonShape.Name = _
-        "restart_button"
-
-    With RestartButtonShape
-
-        .Fill.ForeColor.RGB = _
-            RGB(235, 235, 235)
-
-        .Line.ForeColor.RGB = _
-            RGB(90, 90, 90)
-
-        .Line.Weight = 1.5
-
-        .TextFrame2.TextRange.Text = ":)"
-
-        .TextFrame2.TextRange.Font.Size = 14
-
-        .TextFrame2.TextRange.Font.Bold = msoTrue
-
-        .TextFrame2.VerticalAnchor = _
-            msoAnchorMiddle
-
-        .TextFrame2.TextRange.ParagraphFormat.Alignment = _
-            msoAlignCenter
-
-        .OnAction = _
-            "'" & ThisWorkbook.Name & "'!StartNewGame"
-
-    End With
-
-End Sub
-Public Sub CreateFlagModeButton()
-
-    Dim BtnLeft As Double
-    Dim BtnTop As Double
-
-    SafeDeleteShape "flag_mode_button"
-
-    BtnLeft = _
-        GetBoardLeft() + _
-        GetBoardWidth() + 12
-
-    BtnTop = _
-        GetHudTop()
-
-    Set FlagButtonShape = _
-        GameSheet.Shapes.AddShape( _
-            msoShapeRoundedRectangle, _
-            BtnLeft, _
-            BtnTop, _
-            70, _
-            24 _
-        )
-
-    FlagButtonShape.Name = _
-        "flag_mode_button"
-
-    With FlagButtonShape
-
-        .TextFrame2.TextRange.Text = _
-            "FLAG: OFF"
-
-        .Fill.ForeColor.RGB = _
-            RGB(220, 220, 220)
-
-        .Line.ForeColor.RGB = _
-            RGB(90, 90, 90)
-
-        .OnAction = _
-            "ToggleFlagMode"
-
-    End With
-
-End Sub
-
-'====================================================
-' REFRESH HUD
-'====================================================
-
-Public Sub RefreshHUD()
-
-    If Not HudInitialized Then
-        Exit Sub
-    End If
-
-    If Not HudMineLabel Is Nothing Then
-
-        HudMineLabel.TextFrame2.TextRange.Text = _
-            "Mines: " & RemainingFlags
+        Err.Raise _
+            vbObjectError + 1000, _
+            "LoadAssets", _
+            "Assets directory not found:" & vbCrLf & _
+            AssetsRoot
 
     End If
 
-    If Not HudTimerLabel Is Nothing Then
+    Set SpritePaths = _
+        CreateObject("Scripting.Dictionary")
 
-        HudTimerLabel.TextFrame2.TextRange.Text = _
-            "Time: " & CurrentElapsedSeconds
+    RegisterGameplaySprites
 
-    End If
 
-    UpdateRestartButtonState
+    If Not VerifyAssets() Then
 
-End Sub
-
-'====================================================
-' UPDATE RESTART BUTTON
-'====================================================
-
-Public Sub UpdateRestartButtonState()
-
-    If RestartButtonShape Is Nothing Then
-        Exit Sub
-    End If
-
-    If GameWon Then
-
-        RestartButtonShape.TextFrame2.TextRange.Text = ":D"
-
-    ElseIf GameOver Then
-
-        RestartButtonShape.TextFrame2.TextRange.Text = "X("
-
-    Else
-
-        RestartButtonShape.TextFrame2.TextRange.Text = ":)"
+        Err.Raise _
+            vbObjectError + 1001, _
+            "LoadAssets", _
+            "Asset verification failed."
 
     End If
 
-End Sub
+    Exit Sub
 
-'====================================================
-' CLEAR HUD
-'====================================================
+ErrorHandler:
 
-Public Sub ClearHUD()
+    MsgBox _
+        "Asset loading failed:" & vbCrLf & _
+        Err.Description, _
+        vbCritical
 
-    SafeDeleteShape "hud_background"
-
-    SafeDeleteShape "restart_button"
-
-    SafeDeleteShape "hud_mines"
-
-    SafeDeleteShape "hud_timer"
-
-    SafeDeleteShape "flag_mode_button"
-
-    ClearDifficultyButtons
-
-    HudInitialized = False
-
-    Set RestartButtonShape = Nothing
-
-    Set HudMineLabel = Nothing
-
-    Set HudTimerLabel = Nothing
+    StopGameTimer
 
 End Sub
 
 '====================================================
-' REALIGN HUD
+' GAMEPLAY SPRITES
 '====================================================
 
-Public Sub RealignHUD()
+Private Sub RegisterGameplaySprites()
 
-    PositionRestartButton
+    RegisterSprite _
+        "hidden", _
+        "block.jpeg"
 
-    PositionLabels
+    RegisterSprite _
+        "flag", _
+        "flag.jpeg"
+
+    RegisterSprite _
+        "mine", _
+        "mine.jpeg"
+
+    RegisterSprite _
+        "active_mine", _
+        "active_mine.jpeg"
+
+    RegisterSprite _
+        "0", _
+        "null.jpeg"
+
+    RegisterSprite _
+        "1", _
+        "1.jpeg"
+
+    RegisterSprite _
+        "2", _
+        "2.jpeg"
+
+    RegisterSprite _
+        "3", _
+        "3.jpeg"
+
+    RegisterSprite _
+        "4", _
+        "4.jpeg"
+
+    RegisterSprite _
+        "5", _
+        "5.jpeg"
+
+    RegisterSprite _
+        "6", _
+        "6.jpeg"
+
+    RegisterSprite _
+        "7", _
+        "7.jpeg"
+
+    RegisterSprite _
+        "8", _
+        "8.jpeg"
+    RegisterSprite "background", "background.jpeg"
 
 End Sub
 
 '====================================================
-' POSITION LABELS
+' SPRITE REGISTRATION
 '====================================================
 
-Private Sub PositionLabels()
-
-    If Not HudMineLabel Is Nothing Then
-
-        HudMineLabel.Left = _
-            GetBoardLeft() + 8
-
-        HudMineLabel.Top = _
-            GetHudTop() + 8
-
-    End If
-
-    If Not HudTimerLabel Is Nothing Then
-
-        HudTimerLabel.Left = _
-            GetBoardLeft() + _
-            GetBoardWidth() - 90
-
-        HudTimerLabel.Top = _
-            GetHudTop() + 8
-
-    End If
-
-End Sub
-
-'====================================================
-' POSITION RESTART BUTTON
-'====================================================
-
-Private Sub PositionRestartButton()
-
-    If RestartButtonShape Is Nothing Then
-        Exit Sub
-    End If
-
-    RestartButtonShape.Left = _
-        GetRestartButtonLeft()
-
-    RestartButtonShape.Top = _
-        GetRestartButtonTop()
-
-End Sub
-
-'====================================================
-' CREATE DIFFICULTY BUTTONS
-'====================================================
-
-Public Sub CreateDifficultyButtons()
-
-    CreateDifficultyButton _
-        "difficulty_easy", _
-        "Easy", _
-        1
-
-    CreateDifficultyButton _
-        "difficulty_medium", _
-        "Medium", _
-        2
-
-    CreateDifficultyButton _
-        "difficulty_hard", _
-        "Hard", _
-        3
-
-End Sub
-
-'====================================================
-' CREATE SINGLE DIFFICULTY BUTTON
-'====================================================
-
-Private Sub CreateDifficultyButton( _
-    ByVal ShapeName As String, _
-    ByVal Caption As String, _
-    ByVal Index As Long _
+Private Sub RegisterSprite( _
+    ByVal SpriteKey As String, _
+    ByVal FileName As String _
 )
 
-    Dim Btn As Shape
+    Dim FullPath As String
 
-    Dim LeftPos As Double
-    Dim TopPos As Double
+    FullPath = AssetsRoot & FileName
 
-    LeftPos = _
-    GetBoardLeft() + _
-    (GetBoardWidth() / 2) - 110 + _
-    ((Index - 1) * 75)
+    If SpritePaths.Exists(SpriteKey) Then
 
-    TopPos = _
-        GetHudTop() - 34
+        Err.Raise _
+            vbObjectError + 1002, _
+            "RegisterSprite", _
+            "Duplicate sprite key detected: " & _
+            SpriteKey
 
-    SafeDeleteShape ShapeName
-
-    Set Btn = _
-        GameSheet.Shapes.AddShape( _
-            msoShapeRoundedRectangle, _
-            LeftPos, _
-            TopPos, _
-            60, _
-            22 _
-        )
-
-    Btn.Name = ShapeName
-
-    Btn.TextFrame2.TextRange.Text = Caption
-
-    Btn.Fill.ForeColor.RGB = _
-        RGB(220, 220, 220)
-
-    Btn.Line.ForeColor.RGB = _
-        RGB(90, 90, 90)
-
-    Btn.OnAction = _
-        "'" & ThisWorkbook.Name & "'!Set" & Caption & "AndRestart"
-
-End Sub
-Public Sub UpdateFlagModeButton()
-
-    If FlagButtonShape Is Nothing Then
-        Exit Sub
     End If
 
-    If FlagModeEnabled Then
+    SpritePaths.Add _
+        SpriteKey, _
+        FullPath
 
-        FlagButtonShape.TextFrame2.TextRange.Text = _
-            "FLAG: ON"
+End Sub
 
-        FlagButtonShape.Fill.ForeColor.RGB = _
-            RGB(255, 220, 120)
+'====================================================
+' SPRITE LOOKUP
+'====================================================
+
+Public Function GetSpritePath( _
+    ByVal SpriteKey As String _
+) As String
+
+    If SpritePaths Is Nothing Then
+
+        Err.Raise _
+            vbObjectError + 1003, _
+            "GetSpritePath", _
+            "Sprite registry not initialized."
+
+    End If
+
+    If Not SpritePaths.Exists(SpriteKey) Then
+
+        Err.Raise _
+            vbObjectError + 1004, _
+            "GetSpritePath", _
+            "Sprite key not found: " & _
+            SpriteKey
+
+    End If
+
+    GetSpritePath = _
+        CStr(SpritePaths(SpriteKey))
+
+End Function
+
+'====================================================
+' ASSET VERIFICATION
+'====================================================
+
+Public Function VerifyAssets() As Boolean
+
+    Dim SpriteKey As Variant
+    Dim AssetPath As String
+
+    VerifyAssets = False
+
+    If SpritePaths Is Nothing Then
+        Exit Function
+    End If
+
+    If SpritePaths.Count = 0 Then
+        Exit Function
+    End If
+
+    For Each SpriteKey In SpritePaths.Keys
+
+        AssetPath = _
+            CStr(SpritePaths(SpriteKey))
+
+        If Not FileExists(AssetPath) Then
+
+            MsgBox _
+                "Missing asset file:" & vbCrLf & _
+                AssetPath, _
+                vbCritical
+
+            Exit Function
+
+        End If
+
+        If Not IsValidImageExtension(AssetPath) Then
+
+            MsgBox _
+                "Invalid asset extension:" & vbCrLf & _
+                AssetPath, _
+                vbCritical
+
+            Exit Function
+
+        End If
+
+    Next SpriteKey
+
+    VerifyAssets = True
+
+End Function
+
+'====================================================
+' FILE VALIDATION
+'====================================================
+
+Private Function FileExists( _
+    ByVal FilePath As String _
+) As Boolean
+
+    On Error Resume Next
+
+    FileExists = _
+        (Len(Dir$(FilePath)) > 0)
+
+    On Error GoTo 0
+
+End Function
+
+Private Function IsValidImageExtension( _
+    ByVal FilePath As String _
+) As Boolean
+
+    Dim Extension As String
+
+    Extension = _
+        LCase$(Mid$( _
+            FilePath, _
+            InStrRev(FilePath, ".") + 1 _
+        ))
+
+    Select Case Extension
+
+        Case "jpg", "jpeg", "png"
+
+            IsValidImageExtension = True
+
+        Case Else
+
+            IsValidImageExtension = False
+
+    End Select
+
+End Function
+
+'====================================================
+' TILE SPRITE RESOLUTION
+'====================================================
+
+Public Function ResolveTileSprite( _
+    ByVal RowIndex As Long, _
+    ByVal ColIndex As Long _
+) As String
+
+    If Not IsWithinBounds(RowIndex, ColIndex) Then
+
+        ResolveTileSprite = "hidden"
+
+        Exit Function
+
+    End If
+
+    '------------------------------
+    ' Flagged tile
+    '------------------------------
+
+    If bandera(RowIndex, ColIndex) Then
+
+        ResolveTileSprite = "flag"
+
+        Exit Function
+
+    End If
+
+    '------------------------------
+    ' Hidden tile
+    '------------------------------
+
+    If Not revelado(RowIndex, ColIndex) Then
+
+        ResolveTileSprite = "hidden"
+
+        Exit Function
+
+    End If
+
+    '------------------------------
+    ' Mine tile
+    '------------------------------
+
+    If tablero(RowIndex, ColIndex) = -1 Then
+
+        If RowIndex = ExplodedRow And _
+           ColIndex = ExplodedCol Then
+
+            ResolveTileSprite = _
+                "active_mine"
+
+        Else
+
+            ResolveTileSprite = _
+                "mine"
+
+        End If
+
+        Exit Function
+
+    End If
+
+    '------------------------------
+    ' Number / empty tile
+    '------------------------------
+
+    ResolveTileSprite = _
+        CStr(tablero(RowIndex, ColIndex))
+
+End Function
+
+'====================================================
+' HUD DIGIT HELPERS
+'====================================================
+
+Public Function GetHudDigitSprite( _
+    ByVal DigitValue As Long _
+) As String
+
+    If DigitValue < 0 Then
+        DigitValue = 0
+    End If
+
+    If DigitValue > 9 Then
+        DigitValue = 9
+    End If
+
+    GetHudDigitSprite = _
+        "score_" & DigitValue
+
+End Function
+
+'====================================================
+' REGISTRY UTILITIES
+'====================================================
+
+Public Function AssetRegistryInitialized() As Boolean
+
+    AssetRegistryInitialized = _
+        Not SpritePaths Is Nothing
+
+End Function
+
+Public Function AssetCount() As Long
+
+    If SpritePaths Is Nothing Then
+
+        AssetCount = 0
+
+        Exit Function
+
+    End If
+
+    AssetCount = SpritePaths.Count
+
+End Function
+
+'====================================================
+' DEBUG UTILITIES
+'====================================================
+
+Public Sub DebugPrintAssetRegistry()
+
+    Dim SpriteKey As Variant
+
+    If SpritePaths Is Nothing Then
+
+        Debug.Print _
+            "Sprite registry not initialized."
+
+        Exit Sub
+
+    End If
+
+    Debug.Print _
+        "===== ASSET REGISTRY ====="
+
+    For Each SpriteKey In SpritePaths.Keys
+
+        Debug.Print _
+            SpriteKey & _
+            " => " & _
+            SpritePaths(SpriteKey)
+
+    Next SpriteKey
+
+End Sub
+
+Public Sub DebugValidateAssets()
+
+    If VerifyAssets() Then
+
+        Debug.Print _
+            "All assets validated successfully."
 
     Else
 
-        FlagButtonShape.TextFrame2.TextRange.Text = _
-            "FLAG: OFF"
-
-        FlagButtonShape.Fill.ForeColor.RGB = _
-            RGB(220, 220, 220)
+        Debug.Print _
+            "Asset validation failed."
 
     End If
-
-End Sub
-'====================================================
-' CLEAR DIFFICULTY BUTTONS
-'====================================================
-
-Public Sub ClearDifficultyButtons()
-
-    SafeDeleteShape "difficulty_easy"
-
-    SafeDeleteShape "difficulty_medium"
-
-    SafeDeleteShape "difficulty_hard"
-
-End Sub
-
-'====================================================
-' DIFFICULTY ACTIONS
-'====================================================
-
-Public Sub SetEasyAndRestart()
-
-    SetEasyDifficulty
-
-    StartNewGame
-
-End Sub
-
-Public Sub SetMediumAndRestart()
-
-    SetMediumDifficulty
-
-    StartNewGame
-
-End Sub
-
-Public Sub SetHardAndRestart()
-
-    SetHardDifficulty
-
-    StartNewGame
-
-End Sub
-
-'====================================================
-' HELPERS
-'====================================================
-
-Private Function GetBoardLeft() As Double
-
-    GetBoardLeft = _
-        GameSheet.Cells( _
-            BoardOriginRow, _
-            BoardOriginCol _
-        ).Left
-
-End Function
-
-Private Function GetBoardTop() As Double
-
-    GetBoardTop = _
-        GameSheet.Cells( _
-            BoardOriginRow, _
-            BoardOriginCol _
-        ).Top
-
-End Function
-
-Private Function GetBoardWidth() As Double
-
-    GetBoardWidth = _
-        BoardCols * TileSize
-
-End Function
-
-Private Function GetHudTop() As Double
-
-    GetHudTop = _
-        GetBoardTop() - _
-        HUD_PANEL_HEIGHT - 8
-
-End Function
-
-Private Function GetRestartButtonLeft() As Double
-
-    GetRestartButtonLeft = _
-        GetBoardLeft() + _
-        (GetBoardWidth() / 2) - _
-        (RESET_BUTTON_SIZE / 2)
-
-End Function
-
-Private Function GetRestartButtonTop() As Double
-
-    GetRestartButtonTop = _
-        GetHudTop() + 4
-
-End Function
-Public Sub ToggleFlagMode()
-
-    FlagModeEnabled = _
-        Not FlagModeEnabled
-
-    UpdateFlagModeButton
 
 End Sub

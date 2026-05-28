@@ -3,357 +3,450 @@ Attribute VB_Name = "mod_render"
 Option Explicit
 
 '====================================================
-' FULL BOARD RENDER
+' ASSET ROOTS
 '====================================================
 
-Public Sub RenderBoard()
+Public Function GetProjectRoot() As String
 
-    Dim r As Long
-    Dim c As Long
+    GetProjectRoot = ThisWorkbook.Path
 
-    Application.ScreenUpdating = False
+End Function
 
-    For r = 1 To BoardRows
+Public Function GetAssetsRoot() As String
 
-        For c = 1 To BoardCols
+    GetAssetsRoot = _
+        GetProjectRoot() & _
+        "\assets\sprites\"
 
-            RenderTile r, c
-
-        Next c
-
-    Next r
-
-    Application.ScreenUpdating = True
-
-End Sub
+End Function
 
 '====================================================
-' DIRTY TILE REFRESH
+' ASSET LOADER
 '====================================================
 
-Public Sub RefreshBoard()
+Public Sub LoadAssets()
 
-    Dim r As Long
-    Dim c As Long
+    On Error GoTo ErrorHandler
 
-    Application.ScreenUpdating = False
+    AssetsRoot = GetAssetsRoot()
 
-    For r = 1 To BoardRows
+    If Len(Dir$(AssetsRoot, vbDirectory)) = 0 Then
 
-        For c = 1 To BoardCols
-
-            If DirtyTiles(r, c) Then
-
-                RenderTile r, c
-
-                DirtyTiles(r, c) = False
-
-            End If
-
-        Next c
-
-    Next r
-
-    Application.ScreenUpdating = True
-
-End Sub
-
-'====================================================
-' TILE RENDERING
-'====================================================
-
-Public Sub RenderTile( _
-    ByVal RowIndex As Long, _
-    ByVal ColIndex As Long _
-)
-
-    Dim SpriteKey As String
-
-    If Not IsWithinBounds(RowIndex, ColIndex) Then
-        Exit Sub
-    End If
-
-    SpriteKey = ResolveTileSprite( _
-        RowIndex, _
-        ColIndex _
-    )
-
-    If LastRenderedSprite(RowIndex, ColIndex) = SpriteKey Then
-
-        Exit Sub
+        Err.Raise _
+            vbObjectError + 1000, _
+            "LoadAssets", _
+            "Assets directory not found:" & vbCrLf & _
+            AssetsRoot
 
     End If
 
-    UpdateTileSprite _
-        RowIndex, _
-        ColIndex, _
-        SpriteKey
+    Set SpritePaths = _
+        CreateObject("Scripting.Dictionary")
 
-    LastRenderedSprite(RowIndex, ColIndex) = _
-        SpriteKey
+    RegisterGameplaySprites
 
-End Sub
 
-'====================================================
-' INITIAL VISUAL CREATION
-'====================================================
+    If Not VerifyAssets() Then
 
-Public Sub CreateBoardVisuals()
+        Err.Raise _
+            vbObjectError + 1001, _
+            "LoadAssets", _
+            "Asset verification failed."
 
-    Dim r As Long
-    Dim c As Long
+    End If
 
-    Application.ScreenUpdating = False
+    Exit Sub
 
-    For r = 1 To BoardRows
+ErrorHandler:
 
-        For c = 1 To BoardCols
+    MsgBox _
+        "Asset loading failed:" & vbCrLf & _
+        Err.Description, _
+        vbCritical
 
-            CreateTileShape r, c
-
-        Next c
-
-    Next r
-
-    Application.ScreenUpdating = True
+    StopGameTimer
 
 End Sub
 
 '====================================================
-' TILE SHAPE CREATION
+' GAMEPLAY SPRITES
 '====================================================
 
-Private Sub CreateTileShape( _
-    ByVal RowIndex As Long, _
-    ByVal ColIndex As Long _
+Private Sub RegisterGameplaySprites()
+
+    RegisterSprite _
+        "hidden", _
+        "block.jpeg"
+
+    RegisterSprite _
+        "flag", _
+        "flag.jpeg"
+
+    RegisterSprite _
+        "mine", _
+        "mine.jpeg"
+
+    RegisterSprite _
+        "active_mine", _
+        "active_mine.jpeg"
+
+    RegisterSprite _
+        "0", _
+        "null.jpeg"
+
+    RegisterSprite _
+        "1", _
+        "1.jpeg"
+
+    RegisterSprite _
+        "2", _
+        "2.jpeg"
+
+    RegisterSprite _
+        "3", _
+        "3.jpeg"
+
+    RegisterSprite _
+        "4", _
+        "4.jpeg"
+
+    RegisterSprite _
+        "5", _
+        "5.jpeg"
+
+    RegisterSprite _
+        "6", _
+        "6.jpeg"
+
+    RegisterSprite _
+        "7", _
+        "7.jpeg"
+
+    RegisterSprite _
+        "8", _
+        "8.jpeg"
+    RegisterSprite "background", "background.jpeg"
+
+End Sub
+
+'====================================================
+' SPRITE REGISTRATION
+'====================================================
+
+Private Sub RegisterSprite( _
+    ByVal SpriteKey As String, _
+    ByVal FileName As String _
 )
 
-    Dim TileCell As Range
+    Dim FullPath As String
 
-    Dim ShapeName As String
+    FullPath = AssetsRoot & FileName
 
-    Dim NewShape As Shape
+    If SpritePaths.Exists(SpriteKey) Then
 
-    ShapeName = _
-        GetTileShapeName( _
-            RowIndex, _
-            ColIndex _
-        )
+        Err.Raise _
+            vbObjectError + 1002, _
+            "RegisterSprite", _
+            "Duplicate sprite key detected: " & _
+            SpriteKey
 
-    Set TileCell = _
-        GetTileCell( _
-            RowIndex, _
-            ColIndex _
-        )
+    End If
 
-    SafeDeleteShape ShapeName
-
-    Set NewShape = _
-        GameSheet.Shapes.AddPicture( _
-            Filename:=GetSpritePath("hidden"), _
-            LinkToFile:=msoFalse, _
-            SaveWithDocument:=msoTrue, _
-            Left:=TileCell.Left, _
-            Top:=TileCell.Top, _
-            Width:=TileSize, _
-            Height:=TileSize _
-        )
-
-    With NewShape
-
-        .Name = ShapeName
-
-        .Placement = xlMoveAndSize
-
-        .LockAspectRatio = msoFalse
-
-        .OnAction = "TileShapeClicked"
-
-    End With
-
-    Set TileShapes(RowIndex, ColIndex) = _
-        NewShape
-
-    LastRenderedSprite(RowIndex, ColIndex) = _
-        vbNullString
+    SpritePaths.Add _
+        SpriteKey, _
+        FullPath
 
 End Sub
 
 '====================================================
-' TILE SPRITE UPDATE
+' SPRITE LOOKUP
 '====================================================
 
-Public Sub UpdateTileSprite( _
-    ByVal RowIndex As Long, _
-    ByVal ColIndex As Long, _
+Public Function GetSpritePath( _
     ByVal SpriteKey As String _
-)
+) As String
 
-    Dim TileCell As Range
+    If SpritePaths Is Nothing Then
 
-    Dim ShapeName As String
+        Err.Raise _
+            vbObjectError + 1003, _
+            "GetSpritePath", _
+            "Sprite registry not initialized."
 
-    Dim ExistingShape As Shape
-    Dim NewShape As Shape
+    End If
 
-    ShapeName = _
-        GetTileShapeName( _
-            RowIndex, _
-            ColIndex _
-        )
+    If Not SpritePaths.Exists(SpriteKey) Then
 
-    Set TileCell = _
-        GetTileCell( _
-            RowIndex, _
-            ColIndex _
-        )
+        Err.Raise _
+            vbObjectError + 1004, _
+            "GetSpritePath", _
+            "Sprite key not found: " & _
+            SpriteKey
 
-    SafeDeleteShape ShapeName
+    End If
 
-    Set NewShape = _
-        GameSheet.Shapes.AddPicture( _
-            Filename:=GetSpritePath(SpriteKey), _
-            LinkToFile:=msoFalse, _
-            SaveWithDocument:=msoTrue, _
-            Left:=TileCell.Left, _
-            Top:=TileCell.Top, _
-            Width:=TileSize, _
-            Height:=TileSize _
-        )
+    GetSpritePath = _
+        CStr(SpritePaths(SpriteKey))
 
-    With NewShape
-
-        .Name = ShapeName
-
-        .Placement = xlMoveAndSize
-
-        .LockAspectRatio = msoFalse
-
-        .OnAction = "TileShapeClicked"
-
-    End With
-
-    Set TileShapes(RowIndex, ColIndex) = _
-        NewShape
-
-End Sub
+End Function
 
 '====================================================
-' SHAPE CLEANUP
+' ASSET VERIFICATION
 '====================================================
 
-Public Sub ClearBoardSprites()
+Public Function VerifyAssets() As Boolean
 
-    Dim r As Long
-    Dim c As Long
+    Dim SpriteKey As Variant
+    Dim AssetPath As String
 
-    Dim ShapeName As String
+    VerifyAssets = False
 
-    Application.ScreenUpdating = False
+    If SpritePaths Is Nothing Then
+        Exit Function
+    End If
 
-    For r = 1 To BoardRows
+    If SpritePaths.Count = 0 Then
+        Exit Function
+    End If
 
-        For c = 1 To BoardCols
+    For Each SpriteKey In SpritePaths.Keys
 
-            ShapeName = _
-                GetTileShapeName(r, c)
+        AssetPath = _
+            CStr(SpritePaths(SpriteKey))
 
-            SafeDeleteShape ShapeName
+        If Not FileExists(AssetPath) Then
 
-            Set TileShapes(r, c) = Nothing
+            MsgBox _
+                "Missing asset file:" & vbCrLf & _
+                AssetPath, _
+                vbCritical
 
-        Next c
+            Exit Function
 
-    Next r
+        End If
 
-    Application.ScreenUpdating = True
+        If Not IsValidImageExtension(AssetPath) Then
 
-End Sub
+            MsgBox _
+                "Invalid asset extension:" & vbCrLf & _
+                AssetPath, _
+                vbCritical
+
+            Exit Function
+
+        End If
+
+    Next SpriteKey
+
+    VerifyAssets = True
+
+End Function
 
 '====================================================
-' SAFE SHAPE DELETION
+' FILE VALIDATION
 '====================================================
 
-Public Sub SafeDeleteShape( _
-    ByVal ShapeName As String _
-)
+Private Function FileExists( _
+    ByVal FilePath As String _
+) As Boolean
 
     On Error Resume Next
 
-    GameSheet.Shapes(ShapeName).Delete
+    FileExists = _
+        (Len(Dir$(FilePath)) > 0)
 
     On Error GoTo 0
 
-End Sub
+End Function
+
+Private Function IsValidImageExtension( _
+    ByVal FilePath As String _
+) As Boolean
+
+    Dim Extension As String
+
+    Extension = _
+        LCase$(Mid$( _
+            FilePath, _
+            InStrRev(FilePath, ".") + 1 _
+        ))
+
+    Select Case Extension
+
+        Case "jpg", "jpeg", "png"
+
+            IsValidImageExtension = True
+
+        Case Else
+
+            IsValidImageExtension = False
+
+    End Select
+
+End Function
 
 '====================================================
-' FORCE FULL REDRAW
+' TILE SPRITE RESOLUTION
 '====================================================
 
-Public Sub ForceFullRender()
+Public Function ResolveTileSprite( _
+    ByVal RowIndex As Long, _
+    ByVal ColIndex As Long _
+) As String
 
-    MarkEntireBoardDirty
+    If Not IsWithinBounds(RowIndex, ColIndex) Then
 
-    RefreshBoard
+        ResolveTileSprite = "hidden"
 
-End Sub
+        Exit Function
 
-'====================================================
-' SHAPE ACTION ROUTER
-'====================================================
-
-Public Sub TileShapeClicked()
-
-    Dim ShapeName As String
-
-    ShapeName = _
-        Application.Caller
-
-    HandleShapeClick ShapeName
-
-End Sub
-
-'====================================================
-' VISUAL ALIGNMENT
-'====================================================
-
-Public Sub RealignBoardShapes()
-
-    Dim r As Long
-    Dim c As Long
-
-    Dim TileCell As Range
-
-    '============================================
-    ' VALIDATE ARRAY
-    '============================================
-
-    If Not IsArrayAllocated(TileShapes) Then
-        Exit Sub
     End If
 
-    For r = 1 To BoardRows
+    '------------------------------
+    ' Flagged tile
+    '------------------------------
 
-        For c = 1 To BoardCols
+    If bandera(RowIndex, ColIndex) Then
 
-            If Not TileShapes(r, c) Is Nothing Then
+        ResolveTileSprite = "flag"
 
-                Set TileCell = _
-                    GetTileCell(r, c)
+        Exit Function
 
-                With TileShapes(r, c)
+    End If
 
-                    .Left = TileCell.Left
-                    .Top = TileCell.Top
-                    .Width = TileSize
-                    .Height = TileSize
+    '------------------------------
+    ' Hidden tile
+    '------------------------------
 
-                End With
+    If Not revelado(RowIndex, ColIndex) Then
 
-            End If
+        ResolveTileSprite = "hidden"
 
-        Next c
+        Exit Function
 
-    Next r
+    End If
+
+    '------------------------------
+    ' Mine tile
+    '------------------------------
+
+    If tablero(RowIndex, ColIndex) = -1 Then
+
+        If RowIndex = ExplodedRow And _
+           ColIndex = ExplodedCol Then
+
+            ResolveTileSprite = _
+                "active_mine"
+
+        Else
+
+            ResolveTileSprite = _
+                "mine"
+
+        End If
+
+        Exit Function
+
+    End If
+
+    '------------------------------
+    ' Number / empty tile
+    '------------------------------
+
+    ResolveTileSprite = _
+        CStr(tablero(RowIndex, ColIndex))
+
+End Function
+
+'====================================================
+' HUD DIGIT HELPERS
+'====================================================
+
+Public Function GetHudDigitSprite( _
+    ByVal DigitValue As Long _
+) As String
+
+    If DigitValue < 0 Then
+        DigitValue = 0
+    End If
+
+    If DigitValue > 9 Then
+        DigitValue = 9
+    End If
+
+    GetHudDigitSprite = _
+        "score_" & DigitValue
+
+End Function
+
+'====================================================
+' REGISTRY UTILITIES
+'====================================================
+
+Public Function AssetRegistryInitialized() As Boolean
+
+    AssetRegistryInitialized = _
+        Not SpritePaths Is Nothing
+
+End Function
+
+Public Function AssetCount() As Long
+
+    If SpritePaths Is Nothing Then
+
+        AssetCount = 0
+
+        Exit Function
+
+    End If
+
+    AssetCount = SpritePaths.Count
+
+End Function
+
+'====================================================
+' DEBUG UTILITIES
+'====================================================
+
+Public Sub DebugPrintAssetRegistry()
+
+    Dim SpriteKey As Variant
+
+    If SpritePaths Is Nothing Then
+
+        Debug.Print _
+            "Sprite registry not initialized."
+
+        Exit Sub
+
+    End If
+
+    Debug.Print _
+        "===== ASSET REGISTRY ====="
+
+    For Each SpriteKey In SpritePaths.Keys
+
+        Debug.Print _
+            SpriteKey & _
+            " => " & _
+            SpritePaths(SpriteKey)
+
+    Next SpriteKey
+
+End Sub
+
+Public Sub DebugValidateAssets()
+
+    If VerifyAssets() Then
+
+        Debug.Print _
+            "All assets validated successfully."
+
+    Else
+
+        Debug.Print _
+            "Asset validation failed."
+
+    End If
 
 End Sub

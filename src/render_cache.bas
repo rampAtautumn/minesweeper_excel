@@ -3,229 +3,450 @@ Attribute VB_Name = "mod_render_cache"
 Option Explicit
 
 '====================================================
-' CACHE RESET
+' ASSET ROOTS
 '====================================================
 
-Public Sub ResetRenderCache()
+Public Function GetProjectRoot() As String
 
-    Dim r As Long
-    Dim c As Long
+    GetProjectRoot = ThisWorkbook.Path
 
-    For r = 1 To BoardRows
+End Function
 
-        For c = 1 To BoardCols
+Public Function GetAssetsRoot() As String
 
-            LastRenderedSprite(r, c) = _
-                vbNullString
-
-            DirtyTiles(r, c) = True
-
-        Next c
-
-    Next r
-
-End Sub
-
-'====================================================
-' TILE CACHE INVALIDATION
-'====================================================
-
-Public Sub InvalidateTileCache( _
-    ByVal RowIndex As Long, _
-    ByVal ColIndex As Long _
-)
-
-    If Not IsWithinBounds(RowIndex, ColIndex) Then
-        Exit Sub
-    End If
-
-    LastRenderedSprite(RowIndex, ColIndex) = _
-        vbNullString
-
-    DirtyTiles(RowIndex, ColIndex) = True
-
-End Sub
-
-'====================================================
-' MASS CACHE INVALIDATION
-'====================================================
-
-Public Sub InvalidateEntireCache()
-
-    Dim r As Long
-    Dim c As Long
-
-    For r = 1 To BoardRows
-
-        For c = 1 To BoardCols
-
-            LastRenderedSprite(r, c) = _
-                vbNullString
-
-            DirtyTiles(r, c) = True
-
-        Next c
-
-    Next r
-
-End Sub
-
-'====================================================
-' CACHE SYNCHRONIZATION
-'====================================================
-
-Public Sub SynchronizeRenderCache()
-
-    Dim r As Long
-    Dim c As Long
-
-    Dim SpriteKey As String
-
-    For r = 1 To BoardRows
-
-        For c = 1 To BoardCols
-
-            SpriteKey = _
-                ResolveTileSprite(r, c)
-
-            LastRenderedSprite(r, c) = _
-                SpriteKey
-
-        Next c
-
-    Next r
-
-End Sub
-
-'====================================================
-' DIRTY TILE COUNT
-'====================================================
-
-Public Function CountDirtyTiles() As Long
-
-    Dim r As Long
-    Dim c As Long
-
-    CountDirtyTiles = 0
-
-    For r = 1 To BoardRows
-
-        For c = 1 To BoardCols
-
-            If DirtyTiles(r, c) Then
-
-                CountDirtyTiles = _
-                    CountDirtyTiles + 1
-
-            End If
-
-        Next c
-
-    Next r
+    GetAssetsRoot = _
+        GetProjectRoot() & _
+        "\assets\sprites\"
 
 End Function
 
 '====================================================
-' CACHE DEBUG
+' ASSET LOADER
 '====================================================
 
-Public Sub DebugPrintRenderCache()
+Public Sub LoadAssets()
 
-    Dim r As Long
-    Dim c As Long
+    On Error GoTo ErrorHandler
 
-    Dim OutputLine As String
+    AssetsRoot = GetAssetsRoot()
 
-    Debug.Print _
-        "===== RENDER CACHE ====="
+    If Len(Dir$(AssetsRoot, vbDirectory)) = 0 Then
 
-    For r = 1 To BoardRows
+        Err.Raise _
+            vbObjectError + 1000, _
+            "LoadAssets", _
+            "Assets directory not found:" & vbCrLf & _
+            AssetsRoot
 
-        OutputLine = vbNullString
+    End If
 
-        For c = 1 To BoardCols
+    Set SpritePaths = _
+        CreateObject("Scripting.Dictionary")
 
-            OutputLine = _
-                OutputLine & _
-                "[" & _
-                LastRenderedSprite(r, c) & _
-                "] "
+    RegisterGameplaySprites
 
-        Next c
 
-        Debug.Print OutputLine
+    If Not VerifyAssets() Then
 
-    Next r
+        Err.Raise _
+            vbObjectError + 1001, _
+            "LoadAssets", _
+            "Asset verification failed."
+
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+
+    MsgBox _
+        "Asset loading failed:" & vbCrLf & _
+        Err.Description, _
+        vbCritical
+
+    StopGameTimer
 
 End Sub
 
 '====================================================
-' DIRTY TILE DEBUG
+' GAMEPLAY SPRITES
 '====================================================
 
-Public Sub DebugPrintDirtyTiles()
+Private Sub RegisterGameplaySprites()
 
-    Dim r As Long
-    Dim c As Long
+    RegisterSprite _
+        "hidden", _
+        "block.jpeg"
 
-    Dim OutputLine As String
+    RegisterSprite _
+        "flag", _
+        "flag.jpeg"
 
-    Debug.Print _
-        "===== DIRTY TILES ====="
+    RegisterSprite _
+        "mine", _
+        "mine.jpeg"
 
-    For r = 1 To BoardRows
+    RegisterSprite _
+        "active_mine", _
+        "active_mine.jpeg"
 
-        OutputLine = vbNullString
+    RegisterSprite _
+        "0", _
+        "null.jpeg"
 
-        For c = 1 To BoardCols
+    RegisterSprite _
+        "1", _
+        "1.jpeg"
 
-            If DirtyTiles(r, c) Then
+    RegisterSprite _
+        "2", _
+        "2.jpeg"
 
-                OutputLine = _
-                    OutputLine & " 1"
+    RegisterSprite _
+        "3", _
+        "3.jpeg"
 
-            Else
+    RegisterSprite _
+        "4", _
+        "4.jpeg"
 
-                OutputLine = _
-                    OutputLine & " 0"
+    RegisterSprite _
+        "5", _
+        "5.jpeg"
 
-            End If
+    RegisterSprite _
+        "6", _
+        "6.jpeg"
 
-        Next c
+    RegisterSprite _
+        "7", _
+        "7.jpeg"
 
-        Debug.Print OutputLine
-
-    Next r
+    RegisterSprite _
+        "8", _
+        "8.jpeg"
+    RegisterSprite "background", "background.jpeg"
 
 End Sub
 
 '====================================================
-' CACHE VALIDATION
+' SPRITE REGISTRATION
 '====================================================
 
-Public Function TileCacheMatchesState( _
-    ByVal RowIndex As Long, _
-    ByVal ColIndex As Long _
+Private Sub RegisterSprite( _
+    ByVal SpriteKey As String, _
+    ByVal FileName As String _
+)
+
+    Dim FullPath As String
+
+    FullPath = AssetsRoot & FileName
+
+    If SpritePaths.Exists(SpriteKey) Then
+
+        Err.Raise _
+            vbObjectError + 1002, _
+            "RegisterSprite", _
+            "Duplicate sprite key detected: " & _
+            SpriteKey
+
+    End If
+
+    SpritePaths.Add _
+        SpriteKey, _
+        FullPath
+
+End Sub
+
+'====================================================
+' SPRITE LOOKUP
+'====================================================
+
+Public Function GetSpritePath( _
+    ByVal SpriteKey As String _
+) As String
+
+    If SpritePaths Is Nothing Then
+
+        Err.Raise _
+            vbObjectError + 1003, _
+            "GetSpritePath", _
+            "Sprite registry not initialized."
+
+    End If
+
+    If Not SpritePaths.Exists(SpriteKey) Then
+
+        Err.Raise _
+            vbObjectError + 1004, _
+            "GetSpritePath", _
+            "Sprite key not found: " & _
+            SpriteKey
+
+    End If
+
+    GetSpritePath = _
+        CStr(SpritePaths(SpriteKey))
+
+End Function
+
+'====================================================
+' ASSET VERIFICATION
+'====================================================
+
+Public Function VerifyAssets() As Boolean
+
+    Dim SpriteKey As Variant
+    Dim AssetPath As String
+
+    VerifyAssets = False
+
+    If SpritePaths Is Nothing Then
+        Exit Function
+    End If
+
+    If SpritePaths.Count = 0 Then
+        Exit Function
+    End If
+
+    For Each SpriteKey In SpritePaths.Keys
+
+        AssetPath = _
+            CStr(SpritePaths(SpriteKey))
+
+        If Not FileExists(AssetPath) Then
+
+            MsgBox _
+                "Missing asset file:" & vbCrLf & _
+                AssetPath, _
+                vbCritical
+
+            Exit Function
+
+        End If
+
+        If Not IsValidImageExtension(AssetPath) Then
+
+            MsgBox _
+                "Invalid asset extension:" & vbCrLf & _
+                AssetPath, _
+                vbCritical
+
+            Exit Function
+
+        End If
+
+    Next SpriteKey
+
+    VerifyAssets = True
+
+End Function
+
+'====================================================
+' FILE VALIDATION
+'====================================================
+
+Private Function FileExists( _
+    ByVal FilePath As String _
 ) As Boolean
 
-    Dim ExpectedSprite As String
+    On Error Resume Next
+
+    FileExists = _
+        (Len(Dir$(FilePath)) > 0)
+
+    On Error GoTo 0
+
+End Function
+
+Private Function IsValidImageExtension( _
+    ByVal FilePath As String _
+) As Boolean
+
+    Dim Extension As String
+
+    Extension = _
+        LCase$(Mid$( _
+            FilePath, _
+            InStrRev(FilePath, ".") + 1 _
+        ))
+
+    Select Case Extension
+
+        Case "jpg", "jpeg", "png"
+
+            IsValidImageExtension = True
+
+        Case Else
+
+            IsValidImageExtension = False
+
+    End Select
+
+End Function
+
+'====================================================
+' TILE SPRITE RESOLUTION
+'====================================================
+
+Public Function ResolveTileSprite( _
+    ByVal RowIndex As Long, _
+    ByVal ColIndex As Long _
+) As String
 
     If Not IsWithinBounds(RowIndex, ColIndex) Then
 
-        TileCacheMatchesState = False
+        ResolveTileSprite = "hidden"
 
         Exit Function
 
     End If
 
-    ExpectedSprite = _
-        ResolveTileSprite( _
-            RowIndex, _
-            ColIndex _
-        )
+    '------------------------------
+    ' Flagged tile
+    '------------------------------
 
-    TileCacheMatchesState = _
-        (LastRenderedSprite(RowIndex, ColIndex) = _
-            ExpectedSprite)
+    If bandera(RowIndex, ColIndex) Then
+
+        ResolveTileSprite = "flag"
+
+        Exit Function
+
+    End If
+
+    '------------------------------
+    ' Hidden tile
+    '------------------------------
+
+    If Not revelado(RowIndex, ColIndex) Then
+
+        ResolveTileSprite = "hidden"
+
+        Exit Function
+
+    End If
+
+    '------------------------------
+    ' Mine tile
+    '------------------------------
+
+    If tablero(RowIndex, ColIndex) = -1 Then
+
+        If RowIndex = ExplodedRow And _
+           ColIndex = ExplodedCol Then
+
+            ResolveTileSprite = _
+                "active_mine"
+
+        Else
+
+            ResolveTileSprite = _
+                "mine"
+
+        End If
+
+        Exit Function
+
+    End If
+
+    '------------------------------
+    ' Number / empty tile
+    '------------------------------
+
+    ResolveTileSprite = _
+        CStr(tablero(RowIndex, ColIndex))
 
 End Function
+
+'====================================================
+' HUD DIGIT HELPERS
+'====================================================
+
+Public Function GetHudDigitSprite( _
+    ByVal DigitValue As Long _
+) As String
+
+    If DigitValue < 0 Then
+        DigitValue = 0
+    End If
+
+    If DigitValue > 9 Then
+        DigitValue = 9
+    End If
+
+    GetHudDigitSprite = _
+        "score_" & DigitValue
+
+End Function
+
+'====================================================
+' REGISTRY UTILITIES
+'====================================================
+
+Public Function AssetRegistryInitialized() As Boolean
+
+    AssetRegistryInitialized = _
+        Not SpritePaths Is Nothing
+
+End Function
+
+Public Function AssetCount() As Long
+
+    If SpritePaths Is Nothing Then
+
+        AssetCount = 0
+
+        Exit Function
+
+    End If
+
+    AssetCount = SpritePaths.Count
+
+End Function
+
+'====================================================
+' DEBUG UTILITIES
+'====================================================
+
+Public Sub DebugPrintAssetRegistry()
+
+    Dim SpriteKey As Variant
+
+    If SpritePaths Is Nothing Then
+
+        Debug.Print _
+            "Sprite registry not initialized."
+
+        Exit Sub
+
+    End If
+
+    Debug.Print _
+        "===== ASSET REGISTRY ====="
+
+    For Each SpriteKey In SpritePaths.Keys
+
+        Debug.Print _
+            SpriteKey & _
+            " => " & _
+            SpritePaths(SpriteKey)
+
+    Next SpriteKey
+
+End Sub
+
+Public Sub DebugValidateAssets()
+
+    If VerifyAssets() Then
+
+        Debug.Print _
+            "All assets validated successfully."
+
+    Else
+
+        Debug.Print _
+            "Asset validation failed."
+
+    End If
+
+End Sub

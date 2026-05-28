@@ -1,5 +1,6 @@
 Attribute VB_Name = "mod_assets"
 
+
 Option Explicit
 
 '====================================================
@@ -45,7 +46,6 @@ Public Sub LoadAssets()
 
     RegisterGameplaySprites
 
-    RegisterHudSprites
 
     If Not VerifyAssets() Then
 

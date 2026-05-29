@@ -3,404 +3,403 @@ Attribute VB_Name = "mod_reset"
 Option Explicit
 
 '====================================================
-' ASSET ROOTS
+' FULL GAME RESET
 '====================================================
 
-Public Function GetProjectRoot() As String
-
-    GetProjectRoot = ThisWorkbook.Path
-
-End Function
-
-Public Function GetAssetsRoot() As String
-
-    GetAssetsRoot = _
-        GetProjectRoot() & _
-        "\assets\sprites\"
-
-End Function
-
-'====================================================
-' ASSET LOADER
-'====================================================
-
-Public Sub LoadAssets()
+Public Sub ResetGame()
 
     On Error GoTo ErrorHandler
 
-    AssetsRoot = GetAssetsRoot()
+    Application.ScreenUpdating = False
 
-    If Len(Dir$(AssetsRoot, vbDirectory)) = 0 Then
+    StopGameTimer
 
-        Err.Raise _
-            vbObjectError + 1000, _
-            "LoadAssets", _
-            "Assets directory not found:" & vbCrLf & _
-            AssetsRoot
+    ResetGameState
 
-    End If
+    ClearVisualState
 
-    Set SpritePaths = _
-        CreateObject("Scripting.Dictionary")
+    ResetBoardData
 
-    RegisterGameplaySprites
+    ResetRenderSystems
 
+    ResetHudState
 
-    If Not VerifyAssets() Then
+    RebuildGameSession
 
-        Err.Raise _
-            vbObjectError + 1001, _
-            "LoadAssets", _
-            "Asset verification failed."
-
-    End If
+    Application.ScreenUpdating = True
 
     Exit Sub
 
 ErrorHandler:
 
+    Application.ScreenUpdating = True
+
     MsgBox _
-        "Asset loading failed:" & vbCrLf & _
+        "Reset failed:" & vbCrLf & _
         Err.Description, _
         vbCritical
 
-    StopGameTimer
+End Sub
+
+'====================================================
+' GAME STATE RESET
+'====================================================
+
+Private Sub ResetGameState()
+
+    GameStarted = False
+
+    GameOver = False
+
+    GameWon = False
+
+    RemainingFlags = MineCount
+
+    CurrentElapsedSeconds = 0
+
+    ExplodedRow = -1
+    ExplodedCol = -1
 
 End Sub
 
 '====================================================
-' GAMEPLAY SPRITES
+' VISUAL CLEANUP
 '====================================================
 
-Private Sub RegisterGameplaySprites()
+Private Sub ClearVisualState()
 
-    RegisterSprite _
-        "hidden", _
-        "block.jpeg"
+    ClearBoardSprites
 
-    RegisterSprite _
-        "flag", _
-        "flag.jpeg"
+    ClearHUD
 
-    RegisterSprite _
-        "mine", _
-        "mine.jpeg"
-
-    RegisterSprite _
-        "active_mine", _
-        "active_mine.jpeg"
-
-    RegisterSprite _
-        "0", _
-        "null.jpeg"
-
-    RegisterSprite _
-        "1", _
-        "1.jpeg"
-
-    RegisterSprite _
-        "2", _
-        "2.jpeg"
-
-    RegisterSprite _
-        "3", _
-        "3.jpeg"
-
-    RegisterSprite _
-        "4", _
-        "4.jpeg"
-
-    RegisterSprite _
-        "5", _
-        "5.jpeg"
-
-    RegisterSprite _
-        "6", _
-        "6.jpeg"
-
-    RegisterSprite _
-        "7", _
-        "7.jpeg"
-
-    RegisterSprite _
-        "8", _
-        "8.jpeg"
-    RegisterSprite "background", "background.jpeg"
+    RemoveOrphanShapes
 
 End Sub
 
 '====================================================
-' SPRITE REGISTRATION
+' ARRAY RESET
 '====================================================
 
-Private Sub RegisterSprite( _
-    ByVal SpriteKey As String, _
-    ByVal FileName As String _
-)
+Private Sub ResetBoardData()
 
-    Dim FullPath As String
+    ResetBoardArrays
 
-    FullPath = AssetsRoot & FileName
+    InitializeEmptyBoard
 
-    If SpritePaths.Exists(SpriteKey) Then
+    GenerateMines
 
-        Err.Raise _
-            vbObjectError + 1002, _
-            "RegisterSprite", _
-            "Duplicate sprite key detected: " & _
-            SpriteKey
-
-    End If
-
-    SpritePaths.Add _
-        SpriteKey, _
-        FullPath
+    CalculateAdjacentCounts
 
 End Sub
 
 '====================================================
-' SPRITE LOOKUP
+' CACHE RESET
 '====================================================
 
-Public Function GetSpritePath( _
-    ByVal SpriteKey As String _
-) As String
+Private Sub ResetRenderSystems()
 
-    If SpritePaths Is Nothing Then
+    ResetRenderCache
 
-        Err.Raise _
-            vbObjectError + 1003, _
-            "GetSpritePath", _
-            "Sprite registry not initialized."
+    MarkEntireBoardDirty
 
-    End If
-
-    If Not SpritePaths.Exists(SpriteKey) Then
-
-        Err.Raise _
-            vbObjectError + 1004, _
-            "GetSpritePath", _
-            "Sprite key not found: " & _
-            SpriteKey
-
-    End If
-
-    GetSpritePath = _
-        CStr(SpritePaths(SpriteKey))
-
-End Function
+End Sub
 
 '====================================================
-' ASSET VERIFICATION
+' HUD RESET
 '====================================================
 
-Public Function VerifyAssets() As Boolean
+Private Sub ResetHudState()
 
-    Dim SpriteKey As Variant
-    Dim AssetPath As String
+    InitializeHUD
+    RefreshHUD
 
-    VerifyAssets = False
-
-    If SpritePaths Is Nothing Then
-        Exit Function
-    End If
-
-    If SpritePaths.Count = 0 Then
-        Exit Function
-    End If
-
-    For Each SpriteKey In SpritePaths.Keys
-
-        AssetPath = _
-            CStr(SpritePaths(SpriteKey))
-
-        If Not FileExists(AssetPath) Then
-
-            MsgBox _
-                "Missing asset file:" & vbCrLf & _
-                AssetPath, _
-                vbCritical
-
-            Exit Function
-
-        End If
-
-        If Not IsValidImageExtension(AssetPath) Then
-
-            MsgBox _
-                "Invalid asset extension:" & vbCrLf & _
-                AssetPath, _
-                vbCritical
-
-            Exit Function
-
-        End If
-
-    Next SpriteKey
-
-    VerifyAssets = True
-
-End Function
+End Sub
 
 '====================================================
-' FILE VALIDATION
+' SESSION REBUILD
 '====================================================
 
-Private Function FileExists( _
-    ByVal FilePath As String _
-) As Boolean
+Private Sub RebuildGameSession()
+
+    CreateBoardVisuals
+
+    RenderBoard
+
+    StartGameTimer
+
+End Sub
+
+'====================================================
+' HARD RESET
+'====================================================
+
+Public Sub HardResetGame()
 
     On Error Resume Next
 
-    FileExists = _
-        (Len(Dir$(FilePath)) > 0)
+    Application.ScreenUpdating = False
+
+    StopGameTimer
+
+    ClearBoardSprites
+
+    ClearHUD
+
+    Erase tablero
+    Erase revelado
+    Erase bandera
+
+    Erase DirtyTiles
+
+    Erase TileShapes
+
+    Erase LastRenderedSprite
+
+    Set SpritePaths = Nothing
+
+    GameStarted = False
+    GameOver = False
+    GameWon = False
+
+    HudInitialized = False
+
+    ExplodedRow = -1
+    ExplodedCol = -1
+
+    CurrentElapsedSeconds = 0
+
+    RemainingFlags = 0
+
+    Application.ScreenUpdating = True
 
     On Error GoTo 0
 
-End Function
-
-Private Function IsValidImageExtension( _
-    ByVal FilePath As String _
-) As Boolean
-
-    Dim Extension As String
-
-    Extension = _
-        LCase$(Mid$( _
-            FilePath, _
-            InStrRev(FilePath, ".") + 1 _
-        ))
-
-    Select Case Extension
-
-        Case "jpg", "jpeg", "png"
-
-            IsValidImageExtension = True
-
-        Case Else
-
-            IsValidImageExtension = False
-
-    End Select
-
-End Function
+End Sub
 
 '====================================================
-' TILE SPRITE RESOLUTION
+' ORPHAN SHAPE CLEANUP
 '====================================================
 
-Public Function ResolveTileSprite( _
-    ByVal RowIndex As Long, _
-    ByVal ColIndex As Long _
-) As String
+Public Sub RemoveOrphanShapes()
 
-    If Not IsWithinBounds(RowIndex, ColIndex) Then
+    Dim shp As Shape
 
-        ResolveTileSprite = "hidden"
+    Dim ShapesToDelete As Collection
 
-        Exit Function
+    Dim Item As Variant
 
-    End If
+    Set ShapesToDelete = New Collection
 
-    '------------------------------
-    ' Flagged tile
-    '------------------------------
+    For Each shp In GameSheet.Shapes
 
-    If bandera(RowIndex, ColIndex) Then
+        If IsBoardShape(shp.Name) Or _
+           IsHudShape(shp.Name) Then
 
-        ResolveTileSprite = "flag"
-
-        Exit Function
-
-    End If
-
-    '------------------------------
-    ' Hidden tile
-    '------------------------------
-
-    If Not revelado(RowIndex, ColIndex) Then
-
-        ResolveTileSprite = "hidden"
-
-        Exit Function
-
-    End If
-
-    '------------------------------
-    ' Mine tile
-    '------------------------------
-
-    If tablero(RowIndex, ColIndex) = -1 Then
-
-        If RowIndex = ExplodedRow And _
-           ColIndex = ExplodedCol Then
-
-            ResolveTileSprite = _
-                "active_mine"
-
-        Else
-
-            ResolveTileSprite = _
-                "mine"
+            ShapesToDelete.Add shp.Name
 
         End If
 
-        Exit Function
+    Next shp
 
-    End If
+    For Each Item In ShapesToDelete
 
-    '------------------------------
-    ' Number / empty tile
-    '------------------------------
+        SafeDeleteShape CStr(Item)
 
-    ResolveTileSprite = _
-        CStr(tablero(RowIndex, ColIndex))
+    Next Item
+
+End Sub
+
+'====================================================
+' BOARD SHAPE DETECTION
+'====================================================
+
+Private Function IsBoardShape( _
+    ByVal ShapeName As String _
+) As Boolean
+
+    IsBoardShape = _
+        Left$(ShapeName, Len(TILE_PREFIX)) = _
+        TILE_PREFIX
 
 End Function
 
 '====================================================
-' HUD DIGIT HELPERS
+' HUD SHAPE DETECTION
 '====================================================
 
-Public Function GetHudDigitSprite( _
-    ByVal DigitValue As Long _
-) As String
+Private Function IsHudShape( _
+    ByVal ShapeName As String _
+) As Boolean
 
-    If DigitValue < 0 Then
-        DigitValue = 0
-    End If
-
-    If DigitValue > 9 Then
-        DigitValue = 9
-    End If
-
-    GetHudDigitSprite = _
-        "score_" & DigitValue
+    IsHudShape = _
+        Left$(ShapeName, Len(HUD_PREFIX)) = _
+        HUD_PREFIX
 
 End Function
 
 '====================================================
-' REGISTRY UTILITIES
+' SAFE ENGINE RESTART
 '====================================================
 
-Public Function AssetRegistryInitialized() As Boolean
+Public Sub RestartEngine()
 
-    AssetRegistryInitialized = _
-        Not SpritePaths Is Nothing
+    Application.ScreenUpdating = False
 
-End Function
+    StopGameTimer
 
-Public Function AssetCount() As Long
+    ClearHoverEffect
 
-    If SpritePaths Is Nothing Then
+    ClearBoardSprites
 
-        AssetCount = 0
+    ClearHUD
 
-        Exit Function
+    '============================================
+    ' DESTROY OLD MEMORY
+    '============================================
 
-    End If
+    Erase tablero
+    Erase revelado
+    Erase bandera
 
-    AssetCount = SpritePaths.Count
+    Erase DirtyTiles
+    Erase TileShapes
+    Erase LastRenderedSprite
+
+    '============================================
+    ' REALLOCATE NEW MEMORY
+    '============================================
+
+    AllocateBoardMemory
+
+    '============================================
+    ' RESET DATA
+    '============================================
+
+    InitializeBoard
+
+    RemainingFlags = MineCount
+
+    CurrentElapsedSeconds = 0
+
+    GameStarted = False
+    GameOver = False
+    GameWon = False
+
+    ExplodedRow = -1
+    ExplodedCol = -1
+
+    '============================================
+    ' REBUILD VISUALS
+    '============================================
+
+    RebuildVisualLayer
+
+    Application.ScreenUpdating = True
+
+End Sub
+
+'====================================================
+' NEW DIFFICULTY RESTART
+'====================================================
+
+Public Sub RestartEasy()
+
+    HardResetGame
+
+    SetEasyDifficulty
+
+
+    BootGame
+
+End Sub
+
+Public Sub RestartMedium()
+
+    HardResetGame
+
+    SetMediumDifficulty
+
+    BootGame
+
+End Sub
+
+Public Sub RestartHard()
+
+    HardResetGame
+
+    SetHardDifficulty
+
+    BootGame
+
+End Sub
+
+'====================================================
+' TIMER RESET
+'====================================================
+
+Public Sub ResetTimerState()
+
+    StopGameTimer
+
+    CurrentElapsedSeconds = 0
+
+    TimerScheduled = False
+
+End Sub
+
+'====================================================
+' SAFE ARRAY REALLOCATION
+'====================================================
+
+Public Sub ReallocateGameMemory()
+
+    Erase tablero
+    Erase revelado
+    Erase bandera
+
+    Erase DirtyTiles
+
+    Erase TileShapes
+
+    Erase LastRenderedSprite
+
+    AllocateBoardMemory
+
+End Sub
+
+'====================================================
+' FULL ENVIRONMENT RESET
+'====================================================
+
+Public Sub ResetWorksheetEnvironment()
+
+    With GameSheet
+
+        .Cells.Clear
+
+        .DrawingObjects.Delete
+
+    End With
+
+End Sub
+
+'====================================================
+' RESET VALIDATION
+'====================================================
+
+Public Function ValidateResetState() As Boolean
+
+    ValidateResetState = False
+
+    If GameOver Then Exit Function
+
+    If GameWon Then Exit Function
+
+    If CurrentElapsedSeconds <> 0 Then Exit Function
+
+    If RemainingFlags <> MineCount Then Exit Function
+
+    ValidateResetState = True
 
 End Function
 
@@ -408,45 +407,28 @@ End Function
 ' DEBUG UTILITIES
 '====================================================
 
-Public Sub DebugPrintAssetRegistry()
-
-    Dim SpriteKey As Variant
-
-    If SpritePaths Is Nothing Then
-
-        Debug.Print _
-            "Sprite registry not initialized."
-
-        Exit Sub
-
-    End If
+Public Sub DebugPrintResetState()
 
     Debug.Print _
-        "===== ASSET REGISTRY ====="
+        "===== RESET STATE ====="
 
-    For Each SpriteKey In SpritePaths.Keys
+    Debug.Print _
+        "GameStarted: " & GameStarted
 
-        Debug.Print _
-            SpriteKey & _
-            " => " & _
-            SpritePaths(SpriteKey)
+    Debug.Print _
+        "GameOver: " & GameOver
 
-    Next SpriteKey
+    Debug.Print _
+        "GameWon: " & GameWon
 
-End Sub
+    Debug.Print _
+        "RemainingFlags: " & RemainingFlags
 
-Public Sub DebugValidateAssets()
+    Debug.Print _
+        "CurrentElapsedSeconds: " & _
+        CurrentElapsedSeconds
 
-    If VerifyAssets() Then
-
-        Debug.Print _
-            "All assets validated successfully."
-
-    Else
-
-        Debug.Print _
-            "Asset validation failed."
-
-    End If
+    Debug.Print _
+        "HudInitialized: " & HudInitialized
 
 End Sub

@@ -3,450 +3,610 @@ Attribute VB_Name = "mod_engine"
 Option Explicit
 
 '====================================================
-' ASSET ROOTS
+' MAIN ENGINE ENTRY
 '====================================================
 
-Public Function GetProjectRoot() As String
-
-    GetProjectRoot = ThisWorkbook.Path
-
-End Function
-
-Public Function GetAssetsRoot() As String
-
-    GetAssetsRoot = _
-        GetProjectRoot() & _
-        "\assets\sprites\"
-
-End Function
-
-'====================================================
-' ASSET LOADER
-'====================================================
-
-Public Sub LoadAssets()
+Public Sub BootGame()
 
     On Error GoTo ErrorHandler
 
-    AssetsRoot = GetAssetsRoot()
+    Application.ScreenUpdating = False
 
-    If Len(Dir$(AssetsRoot, vbDirectory)) = 0 Then
+    '================================================
+    ' CORE INITIALIZATION
+    '================================================
 
-        Err.Raise _
-            vbObjectError + 1000, _
-            "LoadAssets", _
-            "Assets directory not found:" & vbCrLf & _
-            AssetsRoot
+    InitializeGlobals
+
+    '================================================
+    ' DEFAULT DIFFICULTY
+    '================================================
+
+    If CurrentDifficulty = 0 Then
+
+        SetEasyDifficulty
 
     End If
 
-    Set SpritePaths = _
-        CreateObject("Scripting.Dictionary")
+    '================================================
+    ' MEMORY
+    '================================================
 
-    RegisterGameplaySprites
+    ReallocateGameMemory
 
+    ResetBoardArrays
+
+    '================================================
+    ' ASSET SYSTEM
+    '================================================
+
+    LoadAssets
 
     If Not VerifyAssets() Then
 
-        Err.Raise _
-            vbObjectError + 1001, _
-            "LoadAssets", _
-            "Asset verification failed."
+        MsgBox _
+            "Missing sprite assets.", _
+            vbCritical
+
+        GoTo Cleanup
 
     End If
+
+    '================================================
+    ' ENVIRONMENT
+    '================================================
+
+    InitializeEnvironment
+
+    SetupWorkspace
+
+    ConfigureBoardLayout
+
+    ApplyClassicWindowStyle
+
+    '================================================
+    ' GAME STATE
+    '================================================
+
+    InitializeBoard
+
+    RemainingFlags = MineCount
+
+    CurrentElapsedSeconds = 0
+
+    GameStarted = False
+    GameOver = False
+    GameWon = False
+
+    ExplodedRow = -1
+    ExplodedCol = -1
+
+    '================================================
+    ' VISUAL INITIALIZATION
+    '================================================
+
+    CreateBoardVisuals
+
+    InitializeHUD
+
+    CreateDifficultyButtons
+
+    MarkEntireBoardDirty
+
+    RenderBoard
+
+    RefreshHUD
+
+    '================================================
+    ' FORCE COMPLETE REDRAW
+    '================================================
+
+    MarkEntireBoardDirty
+
+    RenderBoard
+
+    RefreshHUD
+    
+    ScrollToGame
+
+Cleanup:
+
+    Application.ScreenUpdating = True
 
     Exit Sub
 
 ErrorHandler:
 
+    Application.ScreenUpdating = True
+
     MsgBox _
-        "Asset loading failed:" & vbCrLf & _
+        "BootGame Error:" & vbCrLf & _
         Err.Description, _
         vbCritical
+
+End Sub
+
+'====================================================
+' ENVIRONMENT SETUP
+'====================================================
+
+Public Sub InitializeEnvironment()
+
+    With GameSheet
+
+        .Cells.RowHeight = TileSize
+
+        .Cells.ColumnWidth = 2.8
+
+        .Cells.Interior.Color = _
+            RGB(192, 192, 192)
+
+    End With
+
+End Sub
+
+'====================================================
+' BOARD LAYOUT
+'====================================================
+
+Public Sub ConfigureBoardLayout()
+
+    Dim r As Long
+    Dim c As Long
+
+    For r = 1 To BoardRows
+
+        GameSheet.Rows( _
+            BoardOriginRow + r - 1 _
+        ).RowHeight = TileSize
+
+    Next r
+
+    For c = 1 To BoardCols
+
+        GameSheet.Columns( _
+            BoardOriginCol + c - 1 _
+        ).ColumnWidth = TileSize / 5.3
+
+    Next c
+
+End Sub
+
+'====================================================
+' BOARD INITIALIZATION
+'====================================================
+
+Public Sub InitializeBoard()
+
+    Randomize
+
+    InitializeEmptyBoard
+
+    GenerateMines
+
+    CalculateAdjacentCounts
+
+End Sub
+
+'====================================================
+' START GAME SESSION
+'====================================================
+
+Public Sub StartGameSession()
+
+    If GameStarted Then
+        Exit Sub
+    End If
+
+    GameStarted = True
+
+    StartGameTimer
+
+End Sub
+
+'====================================================
+' START NEW GAME
+'====================================================
+Public Sub StartNewGame()
+
+    ResetGame
+
+    BootGame
+
+End Sub
+
+'====================================================
+' FULL GAME RESET
+'====================================================
+
+Public Sub ResetGame()
+
+    On Error GoTo ErrorHandler
+
+    Application.ScreenUpdating = False
+
+    '================================================
+    ' STOP ACTIVE SYSTEMS
+    '================================================
+
+    StopGameTimer
+
+    ClearHoverEffect
+
+    '================================================
+    ' CLEAR VISUALS
+    '================================================
+
+    ClearBoardSprites
+
+    ClearHUD
+
+    ClearDifficultyButtons
+
+    '================================================
+    ' RESET GAME STATE
+    '================================================
+
+    GameStarted = False
+
+    GameOver = False
+
+    GameWon = False
+
+    RemainingFlags = MineCount
+
+    CurrentElapsedSeconds = 0
+
+    ExplodedRow = -1
+    ExplodedCol = -1
+
+    '================================================
+    ' RESET MEMORY
+    '================================================
+    
+    ReallocateGameMemory
+    
+    ResetBoardArrays
+    
+    '================================================
+    ' REBUILD BOARD
+    '================================================
+    
+    InitializeBoard
+    
+    '================================================
+    ' RECALCULATE LAYOUT
+    '================================================
+    
+    SetupWorkspace
+    
+    ConfigureBoardLayout
+
+    '================================================
+    ' REBUILD VISUALS
+    '================================================
+
+    CreateBoardFrame
+
+    CreateBoardVisuals
+
+    InitializeHUD
+
+    CreateDifficultyButtons
+
+    '================================================
+    ' FORCE FULL REDRAW
+    '================================================
+
+    MarkEntireBoardDirty
+
+    RenderBoard
+
+    RefreshHUD
+
+    Application.ScreenUpdating = True
+
+    Exit Sub
+
+ErrorHandler:
+
+    Application.ScreenUpdating = True
+
+    MsgBox _
+        "ResetGame Error:" & vbCrLf & _
+        Err.Description, _
+        vbCritical
+
+End Sub
+
+'====================================================
+' HANDLE GAME OVER
+'====================================================
+
+Public Sub HandleGameOver( _
+    ByVal MineRow As Long, _
+    ByVal MineCol As Long _
+)
+
+    If GameOver Then
+        Exit Sub
+    End If
+
+    GameOver = True
+
+    ExplodedRow = MineRow
+    ExplodedCol = MineCol
+
+    RevealAllMines
+
+    MarkEntireBoardDirty
+
+    PlayLossEffect
+
+    RefreshBoard
 
     StopGameTimer
 
 End Sub
 
 '====================================================
-' GAMEPLAY SPRITES
+' HANDLE VICTORY
 '====================================================
 
-Private Sub RegisterGameplaySprites()
+Public Sub HandleVictory()
 
-    RegisterSprite _
-        "hidden", _
-        "block.jpeg"
+    If GameWon Then
+        Exit Sub
+    End If
 
-    RegisterSprite _
-        "flag", _
-        "flag.jpeg"
+    GameWon = True
+    GameOver = True
 
-    RegisterSprite _
-        "mine", _
-        "mine.jpeg"
+    StopGameTimer
 
-    RegisterSprite _
-        "active_mine", _
-        "active_mine.jpeg"
+    PlayVictoryEffect
 
-    RegisterSprite _
-        "0", _
-        "null.jpeg"
-
-    RegisterSprite _
-        "1", _
-        "1.jpeg"
-
-    RegisterSprite _
-        "2", _
-        "2.jpeg"
-
-    RegisterSprite _
-        "3", _
-        "3.jpeg"
-
-    RegisterSprite _
-        "4", _
-        "4.jpeg"
-
-    RegisterSprite _
-        "5", _
-        "5.jpeg"
-
-    RegisterSprite _
-        "6", _
-        "6.jpeg"
-
-    RegisterSprite _
-        "7", _
-        "7.jpeg"
-
-    RegisterSprite _
-        "8", _
-        "8.jpeg"
-    RegisterSprite "background", "background.jpeg"
+    RefreshHUD
 
 End Sub
 
 '====================================================
-' SPRITE REGISTRATION
+' REVEAL ALL MINES
 '====================================================
 
-Private Sub RegisterSprite( _
-    ByVal SpriteKey As String, _
-    ByVal FileName As String _
-)
+Public Sub RevealAllMines()
 
-    Dim FullPath As String
+    Dim r As Long
+    Dim c As Long
 
-    FullPath = AssetsRoot & FileName
+    For r = 1 To BoardRows
 
-    If SpritePaths.Exists(SpriteKey) Then
+        For c = 1 To BoardCols
 
-        Err.Raise _
-            vbObjectError + 1002, _
-            "RegisterSprite", _
-            "Duplicate sprite key detected: " & _
-            SpriteKey
+            If tablero(r, c) = -1 Then
 
-    End If
+                revelado(r, c) = True
 
-    SpritePaths.Add _
-        SpriteKey, _
-        FullPath
+                DirtyTiles(r, c) = True
+
+            End If
+
+        Next c
+
+    Next r
 
 End Sub
 
 '====================================================
-' SPRITE LOOKUP
+' TIMER START
 '====================================================
 
-Public Function GetSpritePath( _
-    ByVal SpriteKey As String _
-) As String
+Public Sub StartGameTimer()
 
-    If SpritePaths Is Nothing Then
-
-        Err.Raise _
-            vbObjectError + 1003, _
-            "GetSpritePath", _
-            "Sprite registry not initialized."
-
+    If TimerScheduled Then
+        Exit Sub
     End If
 
-    If Not SpritePaths.Exists(SpriteKey) Then
+    GameStartTime = Now
 
-        Err.Raise _
-            vbObjectError + 1004, _
-            "GetSpritePath", _
-            "Sprite key not found: " & _
-            SpriteKey
+    ScheduleNextTimerTick
 
+End Sub
+
+'====================================================
+' TIMER SCHEDULING
+'====================================================
+
+Public Sub ScheduleNextTimerTick()
+
+    If GameOver Then
+        Exit Sub
     End If
 
-    GetSpritePath = _
-        CStr(SpritePaths(SpriteKey))
+    NextTimerTick = _
+        Now + TimeSerial(0, 0, 1)
 
-End Function
+    TimerScheduled = True
+
+    Application.OnTime _
+        EarliestTime:=NextTimerTick, _
+        Procedure:="TimerTick", _
+        Schedule:=True
+
+End Sub
 
 '====================================================
-' ASSET VERIFICATION
+' TIMER TICK
 '====================================================
 
-Public Function VerifyAssets() As Boolean
+Public Sub TimerTick()
 
-    Dim SpriteKey As Variant
-    Dim AssetPath As String
+    TimerScheduled = False
 
-    VerifyAssets = False
-
-    If SpritePaths Is Nothing Then
-        Exit Function
+    If GameOver Then
+        Exit Sub
     End If
 
-    If SpritePaths.Count = 0 Then
-        Exit Function
+    If Not GameStarted Then
+        Exit Sub
     End If
 
-    For Each SpriteKey In SpritePaths.Keys
+    CurrentElapsedSeconds = _
+        DateDiff("s", GameStartTime, Now)
+    
+    RefreshHUD
+    
+    ScheduleNextTimerTick
 
-        AssetPath = _
-            CStr(SpritePaths(SpriteKey))
-
-        If Not FileExists(AssetPath) Then
-
-            MsgBox _
-                "Missing asset file:" & vbCrLf & _
-                AssetPath, _
-                vbCritical
-
-            Exit Function
-
-        End If
-
-        If Not IsValidImageExtension(AssetPath) Then
-
-            MsgBox _
-                "Invalid asset extension:" & vbCrLf & _
-                AssetPath, _
-                vbCritical
-
-            Exit Function
-
-        End If
-
-    Next SpriteKey
-
-    VerifyAssets = True
-
-End Function
+End Sub
 
 '====================================================
-' FILE VALIDATION
+' TIMER STOP
 '====================================================
 
-Private Function FileExists( _
-    ByVal FilePath As String _
-) As Boolean
+Public Sub StopGameTimer()
 
     On Error Resume Next
 
-    FileExists = _
-        (Len(Dir$(FilePath)) > 0)
+    If TimerScheduled Then
+
+        Application.OnTime _
+            EarliestTime:=NextTimerTick, _
+            Procedure:="TimerTick", _
+            Schedule:=False
+
+    End If
+
+    TimerScheduled = False
 
     On Error GoTo 0
 
-End Function
-
-Private Function IsValidImageExtension( _
-    ByVal FilePath As String _
-) As Boolean
-
-    Dim Extension As String
-
-    Extension = _
-        LCase$(Mid$( _
-            FilePath, _
-            InStrRev(FilePath, ".") + 1 _
-        ))
-
-    Select Case Extension
-
-        Case "jpg", "jpeg", "png"
-
-            IsValidImageExtension = True
-
-        Case Else
-
-            IsValidImageExtension = False
-
-    End Select
-
-End Function
+End Sub
 
 '====================================================
-' TILE SPRITE RESOLUTION
+' SAFE SHUTDOWN
 '====================================================
 
-Public Function ResolveTileSprite( _
-    ByVal RowIndex As Long, _
-    ByVal ColIndex As Long _
-) As String
+Public Sub ShutdownGame()
 
-    If Not IsWithinBounds(RowIndex, ColIndex) Then
+    On Error Resume Next
 
-        ResolveTileSprite = "hidden"
+    StopGameTimer
 
-        Exit Function
+    ClearHoverEffect
 
-    End If
+    ClearBoardSprites
 
-    '------------------------------
-    ' Flagged tile
-    '------------------------------
+    ClearHUD
 
-    If bandera(RowIndex, ColIndex) Then
+    ClearDifficultyButtons
 
-        ResolveTileSprite = "flag"
+    GameSheet.ScrollArea = vbNullString
 
-        Exit Function
+    ActiveWindow.DisplayGridlines = True
+    ActiveWindow.DisplayHeadings = True
+    ActiveWindow.DisplayWorkbookTabs = True
 
-    End If
+    Application.DisplayFormulaBar = True
+    Application.DisplayStatusBar = True
 
-    '------------------------------
-    ' Hidden tile
-    '------------------------------
+    GameStarted = False
+    GameOver = False
+    GameWon = False
 
-    If Not revelado(RowIndex, ColIndex) Then
-
-        ResolveTileSprite = "hidden"
-
-        Exit Function
-
-    End If
-
-    '------------------------------
-    ' Mine tile
-    '------------------------------
-
-    If tablero(RowIndex, ColIndex) = -1 Then
-
-        If RowIndex = ExplodedRow And _
-           ColIndex = ExplodedCol Then
-
-            ResolveTileSprite = _
-                "active_mine"
-
-        Else
-
-            ResolveTileSprite = _
-                "mine"
-
-        End If
-
-        Exit Function
-
-    End If
-
-    '------------------------------
-    ' Number / empty tile
-    '------------------------------
-
-    ResolveTileSprite = _
-        CStr(tablero(RowIndex, ColIndex))
-
-End Function
-
-'====================================================
-' HUD DIGIT HELPERS
-'====================================================
-
-Public Function GetHudDigitSprite( _
-    ByVal DigitValue As Long _
-) As String
-
-    If DigitValue < 0 Then
-        DigitValue = 0
-    End If
-
-    If DigitValue > 9 Then
-        DigitValue = 9
-    End If
-
-    GetHudDigitSprite = _
-        "score_" & DigitValue
-
-End Function
-
-'====================================================
-' REGISTRY UTILITIES
-'====================================================
-
-Public Function AssetRegistryInitialized() As Boolean
-
-    AssetRegistryInitialized = _
-        Not SpritePaths Is Nothing
-
-End Function
-
-Public Function AssetCount() As Long
-
-    If SpritePaths Is Nothing Then
-
-        AssetCount = 0
-
-        Exit Function
-
-    End If
-
-    AssetCount = SpritePaths.Count
-
-End Function
-
-'====================================================
-' DEBUG UTILITIES
-'====================================================
-
-Public Sub DebugPrintAssetRegistry()
-
-    Dim SpriteKey As Variant
-
-    If SpritePaths Is Nothing Then
-
-        Debug.Print _
-            "Sprite registry not initialized."
-
-        Exit Sub
-
-    End If
-
-    Debug.Print _
-        "===== ASSET REGISTRY ====="
-
-    For Each SpriteKey In SpritePaths.Keys
-
-        Debug.Print _
-            SpriteKey & _
-            " => " & _
-            SpritePaths(SpriteKey)
-
-    Next SpriteKey
+    On Error GoTo 0
 
 End Sub
 
-Public Sub DebugValidateAssets()
+'====================================================
+' FULL REFRESH
+'====================================================
 
-    If VerifyAssets() Then
+Public Sub RefreshEntireGame()
 
-        Debug.Print _
-            "All assets validated successfully."
+    RefreshBoard
 
-    Else
+    RefreshHUD
 
-        Debug.Print _
-            "Asset validation failed."
+End Sub
 
-    End If
+'====================================================
+' HARD REFRESH
+'====================================================
+
+Public Sub HardRefresh()
+
+    Application.ScreenUpdating = False
+
+    MarkEntireBoardDirty
+
+    RefreshBoard
+
+    RefreshHUD
+
+    Application.ScreenUpdating = True
+
+End Sub
+Public Sub RebuildVisualLayer()
+
+    ClearBoardSprites
+
+    ClearHUD
+
+    CreateBoardVisuals
+
+    InitializeHUD
+
+    MarkEntireBoardDirty
+
+    RenderBoard
+
+    RefreshHUD
+
+End Sub
+Public Sub ScrollToGame()
+
+    Application.Goto _
+        GameSheet.Cells( _
+            BoardOriginRow, _
+            BoardOriginCol _
+        ), _
+        True
+
+End Sub
+
+'====================================================
+' DEBUG ENGINE STATE
+'====================================================
+
+Public Sub DebugPrintEngineState()
+
+    Debug.Print _
+        "===== ENGINE STATE ====="
+
+    Debug.Print _
+        "GameStarted: " & GameStarted
+
+    Debug.Print _
+        "GameOver: " & GameOver
+
+    Debug.Print _
+        "GameWon: " & GameWon
+
+    Debug.Print _
+        "BoardRows: " & BoardRows
+
+    Debug.Print _
+        "BoardCols: " & BoardCols
+
+    Debug.Print _
+        "MineCount: " & MineCount
+
+    Debug.Print _
+        "RemainingFlags: " & RemainingFlags
+
+    Debug.Print _
+        "ElapsedSeconds: " & _
+        CurrentElapsedSeconds
 
 End Sub

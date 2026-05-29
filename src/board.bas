@@ -3,450 +3,289 @@ Attribute VB_Name = "mod_board"
 Option Explicit
 
 '====================================================
-' ASSET ROOTS
+' BOARD INITIALIZATION
 '====================================================
 
-Public Function GetProjectRoot() As String
+Public Sub InitializeEmptyBoard()
 
-    GetProjectRoot = ThisWorkbook.Path
+    Dim r As Long
+    Dim c As Long
 
-End Function
+    For r = 1 To BoardRows
 
-Public Function GetAssetsRoot() As String
+        For c = 1 To BoardCols
 
-    GetAssetsRoot = _
-        GetProjectRoot() & _
-        "\assets\sprites\"
+            tablero(r, c) = 0
 
-End Function
+            revelado(r, c) = False
 
-'====================================================
-' ASSET LOADER
-'====================================================
+            bandera(r, c) = False
 
-Public Sub LoadAssets()
+            DirtyTiles(r, c) = True
 
-    On Error GoTo ErrorHandler
+        Next c
 
-    AssetsRoot = GetAssetsRoot()
-
-    If Len(Dir$(AssetsRoot, vbDirectory)) = 0 Then
-
-        Err.Raise _
-            vbObjectError + 1000, _
-            "LoadAssets", _
-            "Assets directory not found:" & vbCrLf & _
-            AssetsRoot
-
-    End If
-
-    Set SpritePaths = _
-        CreateObject("Scripting.Dictionary")
-
-    RegisterGameplaySprites
-
-
-    If Not VerifyAssets() Then
-
-        Err.Raise _
-            vbObjectError + 1001, _
-            "LoadAssets", _
-            "Asset verification failed."
-
-    End If
-
-    Exit Sub
-
-ErrorHandler:
-
-    MsgBox _
-        "Asset loading failed:" & vbCrLf & _
-        Err.Description, _
-        vbCritical
-
-    StopGameTimer
+    Next r
 
 End Sub
 
 '====================================================
-' GAMEPLAY SPRITES
+' MINE GENERATION
 '====================================================
 
-Private Sub RegisterGameplaySprites()
+Public Sub GenerateMines()
 
-    RegisterSprite _
-        "hidden", _
-        "block.jpeg"
+    Dim MinesPlaced As Long
 
-    RegisterSprite _
-        "flag", _
-        "flag.jpeg"
+    Dim RandomRow As Long
+    Dim RandomCol As Long
 
-    RegisterSprite _
-        "mine", _
-        "mine.jpeg"
+    MinesPlaced = 0
 
-    RegisterSprite _
-        "active_mine", _
-        "active_mine.jpeg"
+    Do While MinesPlaced < MineCount
 
-    RegisterSprite _
-        "0", _
-        "null.jpeg"
+        RandomRow = Int(BoardRows * Rnd) + 1
+        RandomCol = Int(BoardCols * Rnd) + 1
 
-    RegisterSprite _
-        "1", _
-        "1.jpeg"
+        If tablero(RandomRow, RandomCol) <> -1 Then
 
-    RegisterSprite _
-        "2", _
-        "2.jpeg"
+            tablero(RandomRow, RandomCol) = -1
 
-    RegisterSprite _
-        "3", _
-        "3.jpeg"
-
-    RegisterSprite _
-        "4", _
-        "4.jpeg"
-
-    RegisterSprite _
-        "5", _
-        "5.jpeg"
-
-    RegisterSprite _
-        "6", _
-        "6.jpeg"
-
-    RegisterSprite _
-        "7", _
-        "7.jpeg"
-
-    RegisterSprite _
-        "8", _
-        "8.jpeg"
-    RegisterSprite "background", "background.jpeg"
-
-End Sub
-
-'====================================================
-' SPRITE REGISTRATION
-'====================================================
-
-Private Sub RegisterSprite( _
-    ByVal SpriteKey As String, _
-    ByVal FileName As String _
-)
-
-    Dim FullPath As String
-
-    FullPath = AssetsRoot & FileName
-
-    If SpritePaths.Exists(SpriteKey) Then
-
-        Err.Raise _
-            vbObjectError + 1002, _
-            "RegisterSprite", _
-            "Duplicate sprite key detected: " & _
-            SpriteKey
-
-    End If
-
-    SpritePaths.Add _
-        SpriteKey, _
-        FullPath
-
-End Sub
-
-'====================================================
-' SPRITE LOOKUP
-'====================================================
-
-Public Function GetSpritePath( _
-    ByVal SpriteKey As String _
-) As String
-
-    If SpritePaths Is Nothing Then
-
-        Err.Raise _
-            vbObjectError + 1003, _
-            "GetSpritePath", _
-            "Sprite registry not initialized."
-
-    End If
-
-    If Not SpritePaths.Exists(SpriteKey) Then
-
-        Err.Raise _
-            vbObjectError + 1004, _
-            "GetSpritePath", _
-            "Sprite key not found: " & _
-            SpriteKey
-
-    End If
-
-    GetSpritePath = _
-        CStr(SpritePaths(SpriteKey))
-
-End Function
-
-'====================================================
-' ASSET VERIFICATION
-'====================================================
-
-Public Function VerifyAssets() As Boolean
-
-    Dim SpriteKey As Variant
-    Dim AssetPath As String
-
-    VerifyAssets = False
-
-    If SpritePaths Is Nothing Then
-        Exit Function
-    End If
-
-    If SpritePaths.Count = 0 Then
-        Exit Function
-    End If
-
-    For Each SpriteKey In SpritePaths.Keys
-
-        AssetPath = _
-            CStr(SpritePaths(SpriteKey))
-
-        If Not FileExists(AssetPath) Then
-
-            MsgBox _
-                "Missing asset file:" & vbCrLf & _
-                AssetPath, _
-                vbCritical
-
-            Exit Function
+            MinesPlaced = MinesPlaced + 1
 
         End If
 
-        If Not IsValidImageExtension(AssetPath) Then
+    Loop
 
-            MsgBox _
-                "Invalid asset extension:" & vbCrLf & _
-                AssetPath, _
-                vbCritical
-
-            Exit Function
-
-        End If
-
-    Next SpriteKey
-
-    VerifyAssets = True
-
-End Function
+End Sub
 
 '====================================================
-' FILE VALIDATION
+' ADJACENT COUNT GENERATION
 '====================================================
 
-Private Function FileExists( _
-    ByVal FilePath As String _
-) As Boolean
+Public Sub CalculateAdjacentCounts()
 
-    On Error Resume Next
+    Dim r As Long
+    Dim c As Long
 
-    FileExists = _
-        (Len(Dir$(FilePath)) > 0)
+    For r = 1 To BoardRows
 
-    On Error GoTo 0
+        For c = 1 To BoardCols
 
-End Function
+            If tablero(r, c) <> -1 Then
 
-Private Function IsValidImageExtension( _
-    ByVal FilePath As String _
-) As Boolean
+                tablero(r, c) = CountAdjacentMines(r, c)
 
-    Dim Extension As String
+            End If
 
-    Extension = _
-        LCase$(Mid$( _
-            FilePath, _
-            InStrRev(FilePath, ".") + 1 _
-        ))
+        Next c
 
-    Select Case Extension
+    Next r
 
-        Case "jpg", "jpeg", "png"
-
-            IsValidImageExtension = True
-
-        Case Else
-
-            IsValidImageExtension = False
-
-    End Select
-
-End Function
+End Sub
 
 '====================================================
-' TILE SPRITE RESOLUTION
+' ADJACENT MINE COUNTER
 '====================================================
 
-Public Function ResolveTileSprite( _
+Public Function CountAdjacentMines( _
     ByVal RowIndex As Long, _
     ByVal ColIndex As Long _
-) As String
+) As Long
+
+    Dim dr As Long
+    Dim dc As Long
+
+    Dim CheckRow As Long
+    Dim CheckCol As Long
+
+    CountAdjacentMines = 0
+
+    For dr = -1 To 1
+
+        For dc = -1 To 1
+
+            If Not (dr = 0 And dc = 0) Then
+
+                CheckRow = RowIndex + dr
+                CheckCol = ColIndex + dc
+
+                If IsWithinBounds(CheckRow, CheckCol) Then
+
+                    If tablero(CheckRow, CheckCol) = -1 Then
+
+                        CountAdjacentMines = _
+                            CountAdjacentMines + 1
+
+                    End If
+
+                End If
+
+            End If
+
+        Next dc
+
+    Next dr
+
+End Function
+
+'====================================================
+' BOARD RESET
+'====================================================
+
+Public Sub ClearBoardState()
+
+    Dim r As Long
+    Dim c As Long
+
+    For r = 1 To BoardRows
+
+        For c = 1 To BoardCols
+
+            tablero(r, c) = 0
+
+            revelado(r, c) = False
+
+            bandera(r, c) = False
+
+            DirtyTiles(r, c) = True
+
+        Next c
+
+    Next r
+
+End Sub
+
+'====================================================
+' REVEAL ALL MINES
+'====================================================
+
+Public Sub RevealAllMines()
+
+    Dim r As Long
+    Dim c As Long
+
+    For r = 1 To BoardRows
+
+        For c = 1 To BoardCols
+
+            If tablero(r, c) = -1 Then
+
+                revelado(r, c) = True
+
+                DirtyTiles(r, c) = True
+
+            End If
+
+        Next c
+
+    Next r
+
+End Sub
+
+'====================================================
+' BOARD DEBUG PRINT
+'====================================================
+
+Public Sub DebugPrintBoard()
+
+    Dim r As Long
+    Dim c As Long
+
+    Dim OutputLine As String
+
+    Debug.Print "===== BOARD ====="
+
+    For r = 1 To BoardRows
+
+        OutputLine = vbNullString
+
+        For c = 1 To BoardCols
+
+            OutputLine = OutputLine & _
+                Format(tablero(r, c), " 0")
+
+        Next c
+
+        Debug.Print OutputLine
+
+    Next r
+
+End Sub
+
+'====================================================
+' SAFE TILE ACCESS
+'====================================================
+
+Public Function GetTileValue( _
+    ByVal RowIndex As Long, _
+    ByVal ColIndex As Long _
+) As Integer
 
     If Not IsWithinBounds(RowIndex, ColIndex) Then
 
-        ResolveTileSprite = "hidden"
+        GetTileValue = 0
 
         Exit Function
 
     End If
 
-    '------------------------------
-    ' Flagged tile
-    '------------------------------
-
-    If bandera(RowIndex, ColIndex) Then
-
-        ResolveTileSprite = "flag"
-
-        Exit Function
-
-    End If
-
-    '------------------------------
-    ' Hidden tile
-    '------------------------------
-
-    If Not revelado(RowIndex, ColIndex) Then
-
-        ResolveTileSprite = "hidden"
-
-        Exit Function
-
-    End If
-
-    '------------------------------
-    ' Mine tile
-    '------------------------------
-
-    If tablero(RowIndex, ColIndex) = -1 Then
-
-        If RowIndex = ExplodedRow And _
-           ColIndex = ExplodedCol Then
-
-            ResolveTileSprite = _
-                "active_mine"
-
-        Else
-
-            ResolveTileSprite = _
-                "mine"
-
-        End If
-
-        Exit Function
-
-    End If
-
-    '------------------------------
-    ' Number / empty tile
-    '------------------------------
-
-    ResolveTileSprite = _
-        CStr(tablero(RowIndex, ColIndex))
+    GetTileValue = tablero(RowIndex, ColIndex)
 
 End Function
 
 '====================================================
-' HUD DIGIT HELPERS
+' TILE HELPERS
 '====================================================
 
-Public Function GetHudDigitSprite( _
-    ByVal DigitValue As Long _
-) As String
+Public Function TileContainsMine( _
+    ByVal RowIndex As Long, _
+    ByVal ColIndex As Long _
+) As Boolean
 
-    If DigitValue < 0 Then
-        DigitValue = 0
-    End If
+    If Not IsWithinBounds(RowIndex, ColIndex) Then
 
-    If DigitValue > 9 Then
-        DigitValue = 9
-    End If
-
-    GetHudDigitSprite = _
-        "score_" & DigitValue
-
-End Function
-
-'====================================================
-' REGISTRY UTILITIES
-'====================================================
-
-Public Function AssetRegistryInitialized() As Boolean
-
-    AssetRegistryInitialized = _
-        Not SpritePaths Is Nothing
-
-End Function
-
-Public Function AssetCount() As Long
-
-    If SpritePaths Is Nothing Then
-
-        AssetCount = 0
+        TileContainsMine = False
 
         Exit Function
 
     End If
 
-    AssetCount = SpritePaths.Count
+    TileContainsMine = _
+        (tablero(RowIndex, ColIndex) = -1)
 
 End Function
 
-'====================================================
-' DEBUG UTILITIES
-'====================================================
+Public Function TileIsRevealed( _
+    ByVal RowIndex As Long, _
+    ByVal ColIndex As Long _
+) As Boolean
 
-Public Sub DebugPrintAssetRegistry()
+    If Not IsWithinBounds(RowIndex, ColIndex) Then
 
-    Dim SpriteKey As Variant
+        TileIsRevealed = False
 
-    If SpritePaths Is Nothing Then
-
-        Debug.Print _
-            "Sprite registry not initialized."
-
-        Exit Sub
+        Exit Function
 
     End If
 
-    Debug.Print _
-        "===== ASSET REGISTRY ====="
+    TileIsRevealed = revelado(RowIndex, ColIndex)
 
-    For Each SpriteKey In SpritePaths.Keys
+End Function
 
-        Debug.Print _
-            SpriteKey & _
-            " => " & _
-            SpritePaths(SpriteKey)
+Public Function TileIsFlagged( _
+    ByVal RowIndex As Long, _
+    ByVal ColIndex As Long _
+) As Boolean
 
-    Next SpriteKey
+    If Not IsWithinBounds(RowIndex, ColIndex) Then
 
-End Sub
+        TileIsFlagged = False
 
-Public Sub DebugValidateAssets()
-
-    If VerifyAssets() Then
-
-        Debug.Print _
-            "All assets validated successfully."
-
-    Else
-
-        Debug.Print _
-            "Asset validation failed."
+        Exit Function
 
     End If
 
-End Sub
+    TileIsFlagged = bandera(RowIndex, ColIndex)
+
+End Function

@@ -1,6 +1,5 @@
 Attribute VB_Name = "mod_assets"
 
-
 Option Explicit
 
 '====================================================
@@ -356,6 +355,16 @@ Public Function ResolveTileSprite( _
 
     ResolveTileSprite = _
         CStr(tablero(RowIndex, ColIndex))
+        If tablero(RowIndex, ColIndex) = 0 Then
+        
+            ResolveTileSprite = "background"
+        
+        Else
+        
+            ResolveTileSprite = _
+                CStr(tablero(RowIndex, ColIndex))
+        
+        End If
 
 End Function
 

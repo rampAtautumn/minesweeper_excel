@@ -41,12 +41,18 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "C:\Users\Ryzen\minesweeper_excel\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+[Files]
+Source: "C:\Users\Ryzen\minesweeper_excel\Buscaminas.xlsm"; DestDir: "{app}"; Flags: ignoreversion
+
 Source: "C:\Users\Ryzen\minesweeper_excel\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+
 Source: "C:\Users\Ryzen\minesweeper_excel\README.md"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\Ryzen\minesweeper_excel\src\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "C:\Users\Ryzen\minesweeper_excel\docs\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "C:\Users\Ryzen\minesweeper_excel\assets\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+Source: "C:\Users\Ryzen\minesweeper_excel\src\*"; DestDir: "{app}\src"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+Source: "C:\Users\Ryzen\minesweeper_excel\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+Source: "C:\Users\Ryzen\minesweeper_excel\assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Registry]

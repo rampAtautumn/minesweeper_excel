@@ -82,6 +82,16 @@ Public Sub BootGame()
     ExplodedCol = -1
 
     '================================================
+    ' VISUAL CLEANUP
+    '================================================
+
+    ClearBoardSprites
+
+    ClearHUD
+
+    ClearDifficultyButtons
+
+    '================================================
     ' VISUAL INITIALIZATION
     '================================================
 
@@ -91,14 +101,8 @@ Public Sub BootGame()
 
     CreateDifficultyButtons
 
-    MarkEntireBoardDirty
-
-    RenderBoard
-
-    RefreshHUD
-
     '================================================
-    ' FORCE COMPLETE REDRAW
+    ' RENDER
     '================================================
 
     MarkEntireBoardDirty
@@ -106,7 +110,11 @@ Public Sub BootGame()
     RenderBoard
 
     RefreshHUD
-    
+
+    '================================================
+    ' CAMERA POSITION
+    '================================================
+
     ScrollToGame
 
 Cleanup:
